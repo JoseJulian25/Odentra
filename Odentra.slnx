@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Odentra.UI/Odentra.UI.csproj" />
+    <Project Path="src/Odentra.Services/Odentra.Services.csproj" />
+    <Project Path="src/Odentra.Data/Odentra.Data.csproj" />
+  </Folder>
+</Solution>
