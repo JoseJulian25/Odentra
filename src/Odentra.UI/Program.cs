@@ -1,8 +1,10 @@
 using Odentra.UI.Components;
+using Odentra.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+builder.Services.AddOdentraServices(builder.Configuration);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
