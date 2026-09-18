@@ -71,9 +71,9 @@ La solución tendrá inicialmente tres proyectos principales:
 
 ```text
 src/
-├── ClinicaDental.UI/
-├── ClinicaDental.Services/
-└── ClinicaDental.Data/
+├── Odentra.UI/
+├── Odentra.Services/
+└── Odentra.Data/
 ```
 
 Cada proyecto tendrá una responsabilidad definida.
@@ -85,7 +85,7 @@ Cada proyecto tendrá una responsabilidad definida.
 Proyecto:
 
 ```text
-ClinicaDental.UI
+Odentra.UI
 ```
 
 Esta capa contiene toda la interfaz de usuario desarrollada con Blazor.
@@ -118,7 +118,7 @@ Esas decisiones pertenecen a la capa de Services.
 La estructura podrá organizarse por módulos funcionales:
 
 ```text
-ClinicaDental.UI/
+Odentra.UI/
 │
 ├── Pages/
 │   ├── Dashboard/
@@ -176,7 +176,7 @@ La estructura exacta podrá modificarse durante el desarrollo si mejora la organ
 Proyecto:
 
 ```text
-ClinicaDental.Services
+Odentra.Services
 ```
 
 Esta capa será responsable de coordinar el comportamiento de la aplicación.
@@ -204,7 +204,7 @@ Esta capa representa el punto principal donde se decide **qué puede hacer el si
 Los servicios se organizarán según los módulos funcionales:
 
 ```text
-ClinicaDental.Services/
+Odentra.Services/
 │
 ├── Pacientes/
 ├── Odontologos/
@@ -253,7 +253,7 @@ Las entidades principales del sistema podrán mantenerse dentro de la capa de Se
 Ejemplo:
 
 ```text
-ClinicaDental.Services/
+Odentra.Services/
 ├── Entities/
 │   ├── Paciente.cs
 │   ├── Odontologo.cs
@@ -285,7 +285,7 @@ No se deberá crear una entidad únicamente porque exista una pantalla o una con
 Proyecto:
 
 ```text
-ClinicaDental.Data
+Odentra.Data
 ```
 
 Esta capa contiene todo lo relacionado con la persistencia y acceso a datos.
