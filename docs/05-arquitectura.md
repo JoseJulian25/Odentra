@@ -2,81 +2,210 @@
 
 ## 1. Propósito
 
-El sistema utilizará una arquitectura por capas para separar las responsabilidades de presentación, lógica de aplicación, dominio y acceso a infraestructura.
+El sistema utilizará una arquitectura por capas sencilla, orientada a separar las responsabilidades principales de la aplicación.
 
-El objetivo es mantener el proyecto organizado, facilitar el trabajo de los integrantes del equipo y permitir que la aplicación pueda evolucionar sin que los cambios en una parte del sistema afecten innecesariamente a las demás.
+La solución estará dividida en tres capas:
 
-La arquitectura debe mantenerse acorde al alcance del proyecto. No se utilizarán microservicios ni una arquitectura distribuida, ya que el sistema será desarrollado como una aplicación monolítica modular.
+1. **UI** — Interfaz de usuario.
+2. **Services** — Lógica de aplicación y reglas de negocio.
+3. **Data** — Acceso y persistencia de datos.
+
+El objetivo es mantener el sistema organizado y fácil de desarrollar y mantener, sin introducir una cantidad de capas o patrones innecesarios para el alcance del proyecto.
+
+La aplicación será un **monolito modular**, desarrollado como una única solución .NET.
 
 ---
 
-## 2. Estilo arquitectónico
+# 2. Arquitectura general
 
-El sistema utilizará:
-
-* Aplicación web monolítica.
-* Arquitectura por capas.
-* Separación de responsabilidades.
-* Desarrollo basado en módulos funcionales.
-* Entity Framework Core para persistencia.
-* SQL Server como base de datos.
-* ASP.NET Core Identity para autenticación y gestión de credenciales.
-* Blazor para la capa de presentación.
-
-La comunicación principal seguirá el siguiente flujo:
+La arquitectura seguirá el siguiente flujo:
 
 ```text
-Usuario
-   ↓
-Presentación (Blazor)
-   ↓
-Aplicación
-   ↓
-Dominio
-   ↓
-Infraestructura
-   ↓
-SQL Server
+┌───────────────────────────────┐
+│              UI               │
+│             Blazor            │
+│                               │
+│  Páginas / Componentes / UI   │
+└───────────────┬───────────────┘
+                │
+                ▼
+┌───────────────────────────────┐
+│           Services            │
+│                               │
+│ Casos de uso                  │
+│ Lógica de negocio             │
+│ Validaciones                  │
+│ Autorización                  │
+│ Auditoría                     │
+└───────────────┬───────────────┘
+                │
+                ▼
+┌───────────────────────────────┐
+│             Data              │
+│                               │
+│ Entity Framework Core         │
+│ Repositorios                  │
+│ ASP.NET Core Identity         │
+│ Persistencia                  │
+└───────────────┬───────────────┘
+                │
+                ▼
+          ┌───────────┐
+          │ SQL Server│
+          └───────────┘
 ```
 
-La dependencia debe dirigirse hacia las capas internas. La interfaz de usuario no debe acceder directamente a la base de datos.
+Las dependencias deberán seguir siempre el siguiente sentido:
+
+```text
+UI → Services → Data
+```
+
+La UI no debe acceder directamente a la base de datos ni utilizar directamente `DbContext`.
 
 ---
 
-## 3. Estructura general
+# 3. Proyectos de la solución
 
-La solución estará organizada de la siguiente manera:
+La solución tendrá inicialmente tres proyectos principales:
 
 ```text
 src/
-├── ClinicaDental.Web/
-├── ClinicaDental.Application/
-├── ClinicaDental.Domain/
-└── ClinicaDental.Infrastructure/
+├── ClinicaDental.UI/
+├── ClinicaDental.Services/
+└── ClinicaDental.Data/
 ```
 
-### 3.1. ClinicaDental.Web
+Cada proyecto tendrá una responsabilidad definida.
 
-Contiene la aplicación Blazor y representa la capa de presentación.
+---
 
-Responsabilidades:
+# 4. Capa UI
 
-* Componentes y páginas Blazor.
-* Layout y navegación.
-* Formularios.
-* Tablas y filtros.
-* Validaciones relacionadas con la interfaz.
-* Manejo de estados visuales.
-* Presentación de mensajes al usuario.
-* Control de acceso visual según permisos.
-* Consumo de los servicios de aplicación.
-
-Esta capa **no debe contener reglas de negocio importantes ni consultas directas a Entity Framework Core**.
-
-Ejemplo:
+Proyecto:
 
 ```text
-Pages/
+ClinicaDental.UI
+```
+
+Esta capa contiene toda la interfaz de usuario desarrollada con Blazor.
+
+## Responsabilidades
+
+La UI será responsable de:
+
+* Mostrar información.
+* Recibir acciones del usuario.
+* Mostrar formularios.
+* Mostrar tablas.
+* Mostrar mensajes de validación.
+* Mostrar estados de carga.
+* Mostrar confirmaciones.
+* Gestionar navegación.
+* Mostrar u ocultar elementos según permisos.
+* Invocar los servicios correspondientes.
+
+La UI **no debe contener reglas de negocio importantes**.
+
+Por ejemplo, un componente de Blazor no debe determinar por sí mismo si un pago puede registrarse o si una cita se solapa con otra.
+
+Esas decisiones pertenecen a la capa de Services.
+
+---
+
+# 5. Organización de la UI
+
+La estructura podrá organizarse por módulos funcionales:
+
+```text
+ClinicaDental.UI/
+│
+├── Pages/
+│   ├── Dashboard/
+│   ├── Pacientes/
+│   ├── Odontologos/
+│   ├── Citas/
+│   ├── HistoriaClinica/
+│   ├── Odontograma/
+│   ├── Tratamientos/
+│   ├── Pagos/
+│   ├── Usuarios/
+│   ├── RolesPermisos/
+│   ├── Auditoria/
+│   └── Reportes/
+│
+├── Components/
+│   ├── Common/
+│   ├── Pacientes/
+│   ├── Citas/
+│   ├── Tratamientos/
+│   └── ...
+│
+├── Layout/
+│
+├── Services/
+│
+└── wwwroot/
+```
+
+Los componentes reutilizables deberán colocarse en `Components`.
+
+Ejemplos:
+
+```text
+Components/
+├── Common/
+│   ├── ConfirmDialog.razor
+│   ├── LoadingIndicator.razor
+│   ├── StatusBadge.razor
+│   └── EmptyState.razor
+│
+├── Pacientes/
+│   └── PacienteCard.razor
+│
+└── Citas/
+    └── CitaStatusBadge.razor
+```
+
+La estructura exacta podrá modificarse durante el desarrollo si mejora la organización.
+
+---
+
+# 6. Capa Services
+
+Proyecto:
+
+```text
+ClinicaDental.Services
+```
+
+Esta capa será responsable de coordinar el comportamiento de la aplicación.
+
+Aquí se implementarán las funcionalidades que el usuario puede ejecutar en el sistema.
+
+## Responsabilidades
+
+* Casos de uso.
+* Lógica de negocio.
+* Validaciones de negocio.
+* Consultas necesarias para las funcionalidades.
+* Modificaciones de información.
+* Autorización por permisos.
+* Coordinación de operaciones relacionadas.
+* Generación de registros de auditoría.
+* Preparación de información para la UI.
+
+Esta capa representa el punto principal donde se decide **qué puede hacer el sistema**.
+
+---
+
+# 7. Servicios por módulo
+
+Los servicios se organizarán según los módulos funcionales:
+
+```text
+ClinicaDental.Services/
+│
 ├── Pacientes/
 ├── Odontologos/
 ├── Citas/
@@ -85,341 +214,168 @@ Pages/
 ├── Tratamientos/
 ├── Pagos/
 ├── Usuarios/
+├── RolesPermisos/
 ├── Auditoria/
 └── Reportes/
 ```
 
+Ejemplos:
+
+```text
+PacienteService
+OdontologoService
+CitaService
+HistoriaClinicaService
+OdontogramaService
+TratamientoService
+PagoService
+UsuarioService
+RolService
+AuditoriaService
+ReporteService
+```
+
+No es obligatorio que cada módulo tenga exactamente un servicio. Si un módulo necesita separar responsabilidades, podrá utilizar varios servicios.
+
+La estructura debe mantenerse sencilla.
+
 ---
 
-## 4. Capa de Aplicación
+
+La página de Blazor no debe realizar directamente las validaciones de negocio ni consultar la base de datos.
+
+---
+
+# 9. Entidades
+
+Las entidades principales del sistema podrán mantenerse dentro de la capa de Services, ya que no se utilizará una capa Domain independiente.
+
+Ejemplo:
+
+```text
+ClinicaDental.Services/
+├── Entities/
+│   ├── Paciente.cs
+│   ├── Odontologo.cs
+│   ├── Cita.cs
+│   ├── HistoriaClinica.cs
+│   ├── ConsultaClinica.cs
+│   ├── PiezaDental.cs
+│   ├── RegistroOdontograma.cs
+│   ├── Tratamiento.cs
+│   ├── TratamientoRealizado.cs
+│   ├── Pago.cs
+│   ├── Usuario.cs
+│   ├── Rol.cs
+│   ├── Permiso.cs
+│   └── RegistroAuditoria.cs
+```
+
+Estas entidades representan los conceptos definidos en `06-modelo-de-dominio.md`.
+
+No se deberá crear una entidad únicamente porque exista una pantalla o una consulta.
+
+---
+
+
+
+
+# 12. Capa Data
 
 Proyecto:
 
 ```text
-ClinicaDental.Application
+ClinicaDental.Data
 ```
 
-Esta capa coordina los casos de uso del sistema.
+Esta capa contiene todo lo relacionado con la persistencia y acceso a datos.
 
-Responsabilidades:
-
-* Implementar casos de uso.
-* Coordinar operaciones entre diferentes entidades.
-* Validar reglas necesarias para ejecutar una operación.
-* Coordinar autorización por permisos.
-* Utilizar interfaces para acceder a infraestructura.
-* Ejecutar operaciones de consulta y modificación.
-* Crear registros de auditoría cuando corresponda.
-* Transformar datos entre modelos de dominio y modelos utilizados por la presentación.
-
-La capa de aplicación no debe encargarse de cómo se almacenan físicamente los datos.
-
-### Ejemplo
-
-Para registrar un pago:
-
-```text
-RegistrarPago
-    ↓
-Validar tratamiento
-    ↓
-Calcular saldo pendiente
-    ↓
-Validar que el monto no exceda el saldo
-    ↓
-Registrar pago
-    ↓
-Registrar auditoría
-```
-
-El componente Blazor solamente solicita la operación y presenta el resultado.
-
----
-
-## 5. Capa de Dominio
-
-Proyecto:
-
-```text
-ClinicaDental.Domain
-```
-
-Es la capa que representa las reglas y conceptos principales del negocio.
-
-Contendrá:
-
-* Entidades.
-* Enumeraciones.
-* Reglas de negocio.
-* Interfaces de repositorios o servicios que deban ser abstraídos.
-* Objetos relacionados directamente con el dominio.
-
-Principales entidades:
-
-```text
-Paciente
-Odontologo
-Cita
-HistoriaClinica
-ConsultaClinica
-PiezaDental
-RegistroOdontograma
-Tratamiento
-TratamientoRealizado
-Pago
-Usuario
-Rol
-Permiso
-RegistroAuditoria
-```
-
-Esta capa no debe depender de:
-
-* Blazor.
-* Entity Framework Core.
-* SQL Server.
-* Componentes visuales.
-* Servicios específicos de infraestructura.
-
-La lógica de dominio debe poder entenderse independientemente de la interfaz gráfica o de la base de datos.
-
----
-
-## 6. Capa de Infraestructura
-
-Proyecto:
-
-```text
-ClinicaDental.Infrastructure
-```
-
-Contiene los detalles técnicos necesarios para comunicarse con recursos externos.
-
-Responsabilidades:
+## Responsabilidades
 
 * Entity Framework Core.
 * `DbContext`.
 * Configuración de entidades.
-* Migraciones.
-* Implementación de repositorios.
+* Repositorios.
 * Consultas a SQL Server.
 * ASP.NET Core Identity.
 * Persistencia de usuarios, roles y permisos.
-* Servicios técnicos externos, si posteriormente fueran necesarios.
+* Implementación de mecanismos de almacenamiento.
 
-Ejemplo:
-
-```text
-Infrastructure/
-├── Persistence/
-│   ├── ApplicationDbContext.cs
-│   ├── Configurations/
-│   └── Migrations/
-├── Repositories/
-├── Identity/
-└── Services/
-```
-
-La infraestructura implementa las interfaces que necesita la capa de aplicación o dominio.
+La capa Data no debe contener lógica propia de la interfaz.
 
 ---
 
-## 7. Dependencias entre proyectos
 
-Las dependencias principales serán:
+# 14. Entity Framework Core
 
-```text
-ClinicaDental.Web
-        ↓
-ClinicaDental.Application
-        ↓
-ClinicaDental.Domain
+Entity Framework Core será utilizado como ORM.
 
-ClinicaDental.Infrastructure
-        ↓
-ClinicaDental.Application
-        ↓
-ClinicaDental.Domain
-```
-
-La capa de dominio será la más independiente.
-
-Una representación simplificada:
-
-```text
-                 ┌─────────────────────┐
-                 │  ClinicaDental.Web  │
-                 │      Blazor         │
-                 └──────────┬──────────┘
-                            │
-                            ▼
-                 ┌─────────────────────┐
-                 │ Application         │
-                 │ Casos de uso        │
-                 └──────────┬──────────┘
-                            │
-                            ▼
-                 ┌─────────────────────┐
-                 │ Domain              │
-                 │ Entidades y reglas  │
-                 └─────────────────────┘
-                            ▲
-                            │
-                 ┌──────────┴──────────┐
-                 │ Infrastructure      │
-                 │ EF Core / Identity  │
-                 │ SQL Server          │
-                 └─────────────────────┘
-```
-
-La aplicación no debe saltarse capas para acceder directamente a la base de datos.
-
----
-
-## 8. Organización interna de los módulos
-
-Los módulos funcionales definidos en `03-modulos-y-funcionalidades.md` deberán mantenerse reconocibles dentro de la solución.
-
-Los principales módulos serán:
-
-```text
-Pacientes
-Odontologos
-Citas
-HistoriaClinica
-Odontograma
-Tratamientos
-Pagos
-Usuarios
-RolesPermisos
-Auditoria
-Reportes
-```
-
-La organización interna puede seguir una estructura orientada a funcionalidades.
-
-Por ejemplo:
-
-```text
-Application/
-├── Pacientes/
-│   ├── CrearPaciente/
-│   ├── EditarPaciente/
-│   ├── ConsultarPacientes/
-│   └── DesactivarPaciente/
-│
-├── Citas/
-│   ├── CrearCita/
-│   ├── EditarCita/
-│   ├── CancelarCita/
-│   └── ConsultarCitas/
-│
-├── Pagos/
-│   ├── RegistrarPago/
-│   └── ConsultarPagos/
-│
-└── ...
-```
-
-No es obligatorio que cada operación se convierta en una cantidad excesiva de clases. La organización debe mantenerse proporcional al tamaño y complejidad del proyecto.
-
----
-
-## 9. Acceso a datos
-
-Entity Framework Core será utilizado como ORM para acceder a SQL Server.
-
-El flujo será:
-
-```text
-Componente Blazor
-       ↓
-Servicio / Caso de uso
-       ↓
-Repositorio o servicio de persistencia
-       ↓
-Entity Framework Core
-       ↓
-SQL Server
-```
-
-Los componentes de Blazor no deberán realizar operaciones como:
-
-```csharp
-_dbContext.Pacientes.ToListAsync();
-```
-
-directamente.
-
-En su lugar, deberán solicitar la información mediante la capa de aplicación.
+El `ApplicationDbContext` será el punto principal de acceso a las entidades persistidas.
 
 Ejemplo conceptual:
 
 ```text
-PacientePage
-    ↓
-PacienteService
-    ↓
-IPacienteRepository
-    ↓
-PacienteRepository
-    ↓
+Services
+   ↓
+Repository
+   ↓
 ApplicationDbContext
+   ↓
+Entity Framework Core
+   ↓
+SQL Server
 ```
+
+La UI no debe utilizar directamente `ApplicationDbContext`.
 
 ---
 
-## 10. Entity Framework Core
+# 15. Repositorios
 
-Entity Framework Core será responsable de la persistencia de las entidades.
-
-La configuración de las entidades deberá mantenerse separada cuando sea necesario para evitar colocar configuraciones extensas dentro del `DbContext`.
+Los repositorios estarán ubicados en Data y serán utilizados por Services para realizar operaciones de persistencia.
 
 Ejemplo:
 
 ```text
-Persistence/
-├── ApplicationDbContext.cs
-└── Configurations/
-    ├── PacienteConfiguration.cs
-    ├── OdontologoConfiguration.cs
-    ├── CitaConfiguration.cs
-    ├── HistoriaClinicaConfiguration.cs
-    ├── TratamientoConfiguration.cs
-    ├── PagoConfiguration.cs
-    └── ...
+IPacienteRepository
+PacienteRepository
+
+ICitaRepository
+CitaRepository
+
+IPagoRepository
+PagoRepository
 ```
 
-Las configuraciones deberán definir, entre otros aspectos:
+Cuando una operación sea sencilla y no justifique un repositorio específico, podrá utilizarse directamente un servicio de acceso a datos apropiado.
 
-* Claves primarias.
-* Relaciones.
-* Claves foráneas.
-* Restricciones de nulabilidad.
-* Longitudes máximas.
-* Índices.
-* Restricciones de unicidad cuando correspondan.
-* Precisión de valores monetarios.
+El objetivo no es crear una abstracción por cada tabla de forma automática, sino mantener una separación clara entre lógica y persistencia.
 
 ---
 
-## 11. Autenticación y autorización
+# 16. Autenticación
 
-La autenticación será manejada mediante ASP.NET Core Identity.
+La autenticación será implementada utilizando **ASP.NET Core Identity**.
 
-El sistema distinguirá entre:
+Identity será responsable de aspectos como:
 
-```text
-Autenticación
-    ↓
-¿Quién es el usuario?
+* Usuarios.
+* Credenciales.
+* Contraseñas.
+* Estados de cuenta.
+* Roles relacionados con autenticación.
 
-Autorización
-    ↓
-¿Qué puede hacer ese usuario?
-```
+Los detalles de persistencia de Identity pertenecerán a Data.
 
-Los roles y permisos definidos en `02-actores-y-roles.md` serán utilizados para controlar el acceso.
+La UI únicamente interactuará con los mecanismos de autenticación proporcionados por la aplicación.
+
+---
+
+# 17. Autorización
+
+La autorización se basará en los roles y permisos definidos en:
+
+`02-actores-y-roles.md`
 
 Los permisos seguirán el formato:
 
@@ -434,6 +390,8 @@ Pacientes.Ver
 Pacientes.Crear
 Pacientes.Editar
 Citas.Crear
+Citas.Cancelar
+HistoriaClinica.Ver
 HistoriaClinica.Editar
 Odontograma.Editar
 Pagos.Crear
@@ -442,304 +400,209 @@ Auditoria.Ver
 Reportes.Ver
 ```
 
-El control de acceso tendrá dos niveles:
+La autorización deberá comprobarse en la capa Services.
 
-### Presentación
+La UI podrá ocultar opciones que el usuario no pueda utilizar, pero esto solamente constituye una mejora de experiencia de usuario.
 
-La interfaz puede ocultar opciones que el usuario no tenga permitido utilizar.
-
-### Aplicación
-
-La operación también deberá ser validada en la capa de aplicación.
-
-Ocultar un botón no constituye una medida suficiente de autorización.
+La seguridad real deberá mantenerse en Services.
 
 ---
 
-## 12. Auditoría
+# 18. Auditoría
 
-La auditoría será implementada como una preocupación transversal de la aplicación.
+La auditoría será manejada desde Services.
 
-Las operaciones relevantes generarán un `RegistroAuditoria` con información como:
+Cuando se realice una operación relevante, el servicio correspondiente podrá registrar una acción en la auditoría.
 
-```text
-Usuario
-FechaHora
-Accion
-Modulo
-Entidad
-EntidadId
-Descripcion
-```
-
-Ejemplos:
+Ejemplo:
 
 ```text
-Crear paciente
-Editar paciente
-Desactivar paciente
-Crear cita
-Cancelar cita
-Modificar historia clínica
-Modificar odontograma
-Registrar tratamiento
-Registrar pago
-Modificar permisos
+PacienteService
+      │
+      ├── Actualizar paciente
+      │
+      └── AuditoriaService.Registrar(...)
+                         │
+                         ▼
+                  AuditRepository
+                         │
+                         ▼
+                    SQL Server
 ```
 
-La auditoría no deberá alterar la operación principal ni convertirse en una dependencia directa de los componentes de interfaz.
+Las operaciones relevantes incluyen:
 
-La capa de aplicación será responsable de coordinar la generación de los registros de auditoría.
+* Crear paciente.
+* Editar paciente.
+* Desactivar paciente.
+* Crear o modificar citas.
+* Modificar historia clínica.
+* Modificar odontograma.
+* Registrar tratamientos.
+* Registrar pagos.
+* Modificar usuarios.
+* Modificar roles y permisos.
+
+Los registros de auditoría serán de solo lectura desde la aplicación.
 
 ---
 
-## 13. Manejo de errores
+# 19. Reportes
 
-Los errores deberán manejarse de forma centralizada y controlada.
+Los reportes serán implementados principalmente mediante consultas de lectura.
 
-Se distinguirán principalmente:
+El flujo será:
 
-* Errores de validación.
-* Operaciones no autorizadas.
-* Entidades inexistentes.
-* Violaciones de reglas de negocio.
-* Errores inesperados de infraestructura.
+```text
+ReportePage
+     ↓
+ReporteService
+     ↓
+Repositorio / consulta
+     ↓
+SQL Server
+     ↓
+Resultado
+     ↓
+UI
+```
 
-Los errores esperados deberán convertirse en mensajes comprensibles para el usuario.
+Los reportes iniciales serán:
+
+* Citas.
+* Pacientes.
+* Tratamientos.
+* Pagos.
+
+Los reportes no serán tratados como entidades persistentes.
+
+---
+
+# 20. Manejo de errores
+
+Los errores de negocio deberán ser controlados desde Services.
+
+Ejemplo:
+
+```text
+PagoService
+    ↓
+¿Monto > saldo pendiente?
+    │
+    ├── Sí → Registrar pago
+    │
+    └── No → Retornar error de negocio
+```
+
+La UI deberá presentar el error de forma comprensible.
+
+Ejemplo:
+
+```text
+No se puede registrar el pago porque
+el monto supera el saldo pendiente.
+```
+
+No se deberán mostrar directamente al usuario:
+
+* Stack traces.
+* Excepciones completas.
+* Consultas SQL.
+* Información interna de Entity Framework.
+* Información sensible de configuración.
+
+Los errores inesperados deberán registrarse mediante logging técnico.
+
+---
+
+# 21. Transacciones
+
+Las operaciones que involucren varias modificaciones que deban completarse juntas deberán ejecutarse dentro de una transacción.
 
 Por ejemplo:
 
 ```text
-No se puede registrar la cita:
-el odontólogo ya tiene una cita activa
-en el horario seleccionado.
-```
-
-No se deberá mostrar al usuario información técnica innecesaria, como excepciones completas de Entity Framework o detalles internos de SQL Server.
-
----
-
-## 14. Validaciones
-
-Las validaciones se distribuirán según su responsabilidad.
-
-### Presentación
-
-Validaciones relacionadas con la entrada del usuario:
-
-* Campos obligatorios.
-* Formato de correo.
-* Formatos de fecha.
-* Longitudes de texto.
-* Formato de números.
-
-### Aplicación / Dominio
-
-Reglas relacionadas con el funcionamiento del negocio:
-
-* No crear citas para pacientes inactivos.
-* No crear citas para odontólogos inactivos.
-* No permitir solapamiento de citas.
-* No registrar pagos superiores al saldo pendiente.
-* No seleccionar tratamientos inactivos.
-* No permitir determinadas transiciones de estados.
-* Mantener la consistencia entre paciente, cita y consulta clínica.
-
-Las validaciones importantes no deben existir únicamente en la interfaz.
-
----
-
-## 15. Transacciones
-
-Las operaciones que modifiquen varias entidades relacionadas deberán ejecutarse dentro de una misma transacción cuando sea necesario garantizar consistencia.
-
-Por ejemplo, una operación que:
-
-```text
 Registrar tratamiento
-        +
+       +
 Registrar auditoría
 ```
 
-deberá evitar quedar parcialmente completada.
+deberá evitar que una de las operaciones se complete mientras la otra falla cuando ambas sean necesarias para mantener la consistencia.
 
-De igual manera, las operaciones que involucren múltiples modificaciones relacionadas deberán considerar la atomicidad de la operación.
+Las transacciones deberán gestionarse desde la capa Services o mediante mecanismos proporcionados por Data.
 
-No todas las consultas necesitan una transacción explícita.
-
----
-
-## 16. Reportes
-
-Los reportes no serán tratados como entidades persistentes del dominio.
-
-Serán consultas construidas en la capa de aplicación utilizando la infraestructura de acceso a datos.
-
-Ejemplos:
-
-```text
-Reporte de citas
-Reporte de pacientes
-Reporte de tratamientos
-Reporte de pagos
-```
-
-El resultado de una consulta podrá utilizar modelos específicos para reportes, evitando exponer directamente las entidades de persistencia a la interfaz.
+No todas las operaciones de lectura requieren una transacción explícita.
 
 ---
 
-## 17. Modelos de transferencia
+# 22. Validaciones
 
-Cuando sea necesario, la capa de aplicación podrá utilizar DTOs o modelos específicos para transportar información entre capas.
+Las validaciones se dividirán entre UI y Services.
 
-Por ejemplo:
+## UI
 
-```text
-PacienteDto
-CrearPacienteRequest
-EditarPacienteRequest
-PacienteDetalleDto
-CitaDto
-RegistrarPagoRequest
-ReportePagosDto
-```
+Validaciones relacionadas con la entrada:
 
-No es obligatorio crear un DTO para absolutamente cada clase del sistema. Se utilizarán cuando ayuden a controlar los datos que entran y salen de los casos de uso.
+* Campos obligatorios.
+* Formato de correo.
+* Longitud.
+* Formato de fecha.
+* Formato numérico.
 
-La interfaz no debe depender innecesariamente de las entidades de persistencia.
+## Services
+
+Validaciones relacionadas con las reglas del sistema:
+
+* Existencia de entidades.
+* Estados.
+* Permisos.
+* Relaciones entre entidades.
+* Solapamiento de citas.
+* Saldos de tratamientos.
+* Restricciones de operaciones.
+
+Una regla de negocio importante nunca deberá depender únicamente de una validación en Blazor.
 
 ---
 
-## 18. Seguridad
 
-El sistema deberá aplicar como mínimo:
+
+# 24. Seguridad
+
+El sistema deberá implementar como mínimo:
 
 * Autenticación mediante ASP.NET Core Identity.
 * Autorización mediante roles y permisos.
-* Contraseñas almacenadas mediante los mecanismos de Identity.
-* Validación de autorización en operaciones sensibles.
-* Protección de las páginas y operaciones administrativas.
-* Auditoría de operaciones relevantes.
-* No exposición de credenciales ni secretos dentro del código fuente.
-* Configuración de conexión a la base de datos mediante configuración segura.
+* Validación de permisos en Services.
+* Protección de páginas y operaciones administrativas.
+* Auditoría de operaciones importantes.
+* No almacenar secretos dentro del código fuente.
+* Utilizar configuración segura para la conexión a SQL Server.
+* No exponer información técnica innecesaria al usuario.
 
-La aplicación deberá seguir el principio de mínimo privilegio.
-
----
-
-## 19. Configuración
-
-Las configuraciones dependientes del entorno no deberán estar codificadas directamente en las clases.
-
-Se utilizarán mecanismos de configuración de ASP.NET Core.
-
-Ejemplos:
-
-```text
-Cadena de conexión
-Configuración de Identity
-Configuración de logging
-Configuraciones específicas del entorno
-```
-
-Los secretos no deberán almacenarse en el repositorio.
+El acceso a información clínica y administrativa deberá respetar los permisos definidos para cada rol.
 
 ---
 
 
-## 21. Navegación y presentación
 
-La navegación de la aplicación seguirá la estructura funcional definida previamente.
 
-```text
-Dashboard
+# 30. Tecnologías
 
-Gestión
-├── Pacientes
-├── Odontólogos
-└── Citas
+La implementación utilizará inicialmente:
 
-Clínica
-├── Historia Clínica
-├── Odontograma
-└── Tratamientos
+| Componente           | Tecnología                           |
+| -------------------- | ------------------------------------ |
+| Lenguaje             | C#                                   |
+| Framework            | .NET / ASP.NET Core                  |
+| Interfaz             | Blazor                               |
+| ORM                  | Entity Framework Core                |
+| Base de datos        | SQL Server                           |
+| Autenticación        | ASP.NET Core Identity                |
+| Estilos              | CSS / librería compatible con Blazor |
+| Control de versiones | Git                                  |
+| Arquitectura         | Monolito por capas                   |
 
-Finanzas
-└── Pagos
-
-Administración
-├── Usuarios
-├── Roles y Permisos
-└── Auditoría
-
-Reportes
-```
-
-Las opciones visibles deberán depender de los permisos del usuario.
-
-La interfaz deberá priorizar:
-
-* Formularios claros.
-* Tablas.
-* Filtros.
-* Modales cuando sean útiles.
-* Navegación sencilla.
-* Diseño responsive básico.
-
-No se requiere una interfaz altamente visual ni animaciones complejas.
-
----
-
-## 22. Principios de implementación
-
-Durante el desarrollo deberán mantenerse los siguientes principios:
-
-### Separación de responsabilidades
-
-Cada capa debe encargarse de aquello que le corresponde.
-
-### No duplicar reglas de negocio
-
-Una regla importante no debe depender únicamente de un componente visual.
-
-### Bajo acoplamiento
-
-Los componentes no deberán depender directamente de implementaciones concretas de infraestructura cuando pueda utilizarse una abstracción adecuada.
-
-### Simplicidad
-
-No se agregarán patrones, librerías o capas que no aporten valor al alcance del proyecto.
-
-### Consistencia
-
-Los módulos deberán seguir convenciones similares de nombres, estructura y manejo de errores.
-
-### Trazabilidad
-
-Las operaciones importantes deberán poder relacionarse con el usuario que las realizó mediante auditoría.
-
-### Evolución controlada
-
-Las nuevas funcionalidades deberán incorporarse siguiendo la arquitectura existente en lugar de crear caminos alternativos dentro de la aplicación.
-
----
-
-## 23. Tecnologías
-
-La implementación inicial utilizará:
-
-| Componente           | Tecnología                                 |
-| -------------------- | ------------------------------------------ |
-| Lenguaje             | C#                                         |
-| Framework            | .NET / ASP.NET Core                        |
-| UI                   | Blazor                                     |
-| ORM                  | Entity Framework Core                      |
-| Base de datos        | SQL Server                                 |
-| Autenticación        | ASP.NET Core Identity                      |
-| Frontend CSS         | Bootstrap o librería compatible con Blazor |
-| Control de versiones | Git                                        |
-| Arquitectura         | Monolito por capas                         |
-
-La selección definitiva de la librería de componentes visuales podrá realizarse durante la implementación, siempre que sea compatible con Blazor y no introduzca complejidad innecesaria.
+No se utilizará Bootstrap como requisito arquitectónico. La interfaz podrá utilizar CSS propio o una librería de componentes compatible con Blazor, siempre que mantenga el diseño definido para el sistema.
 
 ---
