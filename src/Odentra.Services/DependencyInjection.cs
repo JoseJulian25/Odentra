@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Odentra.Data;
+using Odentra.Data.Repositories;
+using Odentra.Services.Pacientes;
 
 namespace Odentra.Services;
 
@@ -16,6 +18,9 @@ public static class DependencyInjection
 
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlServer(connectionString));
+
+        services.AddScoped<IPacienteRepository, PacienteRepository>();
+        services.AddScoped<IPacienteService, PacienteService>();
 
         return services;
     }
