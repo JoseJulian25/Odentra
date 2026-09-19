@@ -1,0 +1,34 @@
+﻿@page "/"
+
+<PageTitle>Dashboard · Odentra</PageTitle>
+
+<div class="dashboard-page">
+	<div class="page-heading">
+		<div>
+			<h1>Dashboard</h1>
+			<p>@DateTime.Now.ToString("dddd, d 'de' MMMM 'de' yyyy", new System.Globalization.CultureInfo("es-DO"))</p>
+		</div>
+	</div>
+
+	<div class="stats-grid">
+		<div class="stat-card"><span>Citas hoy</span><strong>27</strong><small>6 pendientes de confirmar</small></div>
+		<div class="stat-card"><span>Pacientes activos</span><strong>1,284</strong><small class="positive">+3 esta semana</small></div>
+		<div class="stat-card"><span>Tratamientos pendientes</span><strong>43</strong><small>12 en proceso</small></div>
+		<div class="stat-card"><span>Pagos pendientes</span><strong>RD$87,500</strong><small class="negative">18 tratamientos</small></div>
+	</div>
+
+	<div class="dashboard-grid">
+		<section class="dashboard-panel appointments-panel">
+			<div class="panel-heading"><h2>Citas de hoy</h2><a href="/citas">Ver todas</a></div>
+			<div class="table-scroll"><table class="data-table"><thead><tr><th>Hora</th><th>Paciente</th><th>Odontólogo</th><th>Tratamiento</th><th>Estado</th></tr></thead><tbody>
+				<tr><td class="mono">08:00</td><td><strong>María González</strong></td><td>Dr. Rodríguez</td><td>Limpieza dental</td><td><span class="status confirmed">Confirmada</span></td></tr>
+				<tr><td class="mono">09:00</td><td><strong>Carlos Méndez</strong></td><td>Dra. Torres</td><td>Extracción molar</td><td><span class="status scheduled">Programada</span></td></tr>
+				<tr><td class="mono">10:30</td><td><strong>Ana Jiménez</strong></td><td>Dr. Rodríguez</td><td>Blanqueamiento</td><td><span class="status confirmed">Confirmada</span></td></tr>
+			</tbody></table></div>
+		</section>
+
+		<section class="dashboard-panel day-summary"><div class="panel-heading"><h2>Resumen del día</h2></div><div class="summary-list"><div><span><i class="dot blue"></i>Programadas</span><strong>12</strong></div><div><span><i class="dot green"></i>Confirmadas</span><strong>8</strong></div><div><span><i class="dot gray"></i>Atendidas hoy</span><strong>5</strong></div><div><span><i class="dot red"></i>Canceladas hoy</span><strong>2</strong></div></div><div class="summary-total"><span>Total citas hoy</span><strong>27</strong></div></section>
+	</div>
+
+	<section class="dashboard-panel activity-panel"><div class="panel-heading"><h2>Actividad reciente</h2></div><div class="activity-row"><span class="activity-icon success">✓</span><span>Cita de María González marcada como Atendida</span><small>hace 12 min · Dra. Torres</small></div><div class="activity-row"><span class="activity-icon info">+</span><span>Nuevo paciente registrado: Roberto Díaz</span><small>hace 28 min · Recepción</small></div><div class="activity-row"><span class="activity-icon payment">¤</span><span>Pago registrado: RD$3,500 · Carlos Méndez</span><small>hace 45 min · Recepción</small></div></section>
+</div>

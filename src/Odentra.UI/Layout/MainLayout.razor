@@ -1,0 +1,89 @@
+﻿@inherits LayoutComponentBase
+
+<div class="app-shell">
+    <aside class="app-sidebar @(sidebarOpen ? "is-open" : "")">
+        <div class="sidebar-brand">
+            <div class="brand-mark">+</div>
+            <div>
+                <strong>Odentra</strong>
+                <span>Sistema de gestión</span>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav" aria-label="Navegación principal">
+            <span class="nav-section">General</span>
+            <NavLink href="/" Match="NavLinkMatch.All" class="nav-item">
+                <span class="nav-icon">▦</span>
+                Dashboard
+            </NavLink>
+
+            <span class="nav-section">Gestión</span>
+            <NavLink href="/pacientes" class="nav-item"><span class="nav-icon">◉</span>Pacientes</NavLink>
+            <NavLink href="/odontologos" class="nav-item"><span class="nav-icon">✚</span>Odontólogos</NavLink>
+            <NavLink href="/citas" class="nav-item"><span class="nav-icon">□</span>Citas</NavLink>
+
+            <span class="nav-section">Clínica</span>
+            <NavLink href="/historia-clinica" class="nav-item"><span class="nav-icon">▤</span>Historia clínica</NavLink>
+            <NavLink href="/odontograma" class="nav-item"><span class="nav-icon">◌</span>Odontograma</NavLink>
+            <NavLink href="/tratamientos" class="nav-item"><span class="nav-icon">✥</span>Tratamientos</NavLink>
+
+            <span class="nav-section">Administración</span>
+            <NavLink href="/pagos" class="nav-item"><span class="nav-icon">¤</span>Pagos</NavLink>
+            <NavLink href="/usuarios" class="nav-item"><span class="nav-icon">◎</span>Usuarios</NavLink>
+            <NavLink href="/roles" class="nav-item"><span class="nav-icon">⚿</span>Roles y permisos</NavLink>
+            <NavLink href="/auditoria" class="nav-item"><span class="nav-icon">≡</span>Auditoría</NavLink>
+            <NavLink href="/reportes" class="nav-item"><span class="nav-icon">▥</span>Reportes</NavLink>
+        </nav>
+
+        <div class="sidebar-user">
+            <div class="avatar avatar-small">AR</div>
+            <div class="user-copy">
+                <strong>Admin Root</strong>
+                <span>Administrador</span>
+            </div>
+            <a class="logout-button" href="/login" aria-label="Cerrar sesión" title="Cerrar sesión">↪</a>
+        </div>
+    </aside>
+
+    @if (sidebarOpen)
+    {
+        <button class="sidebar-overlay" @onclick="CloseSidebar" aria-label="Cerrar navegación"></button>
+    }
+
+    <div class="app-main">
+        <main class="app-content">
+            @Body
+        </main>
+    </div>
+</div>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+@code {
+    private bool sidebarOpen;
+    private string CurrentTitle => Navigation.Uri.ToLowerInvariant() switch
+    {
+        var uri when uri.Contains("pacientes") => "Pacientes",
+        var uri when uri.Contains("odontologos") => "Odontólogos",
+        var uri when uri.Contains("citas") => "Citas",
+        var uri when uri.Contains("historia") => "Historia clínica",
+        var uri when uri.Contains("odontograma") => "Odontograma",
+        var uri when uri.Contains("tratamientos") => "Tratamientos",
+        var uri when uri.Contains("pagos") => "Pagos",
+        var uri when uri.Contains("usuarios") => "Usuarios",
+        var uri when uri.Contains("roles") => "Roles y permisos",
+        var uri when uri.Contains("auditoria") => "Auditoría",
+        var uri when uri.Contains("reportes") => "Reportes",
+        _ => "Dashboard"
+    };
+
+    [Inject]
+    private NavigationManager Navigation { get; set; } = null!;
+
+    private void ToggleSidebar() => sidebarOpen = !sidebarOpen;
+    private void CloseSidebar() => sidebarOpen = false;
+}

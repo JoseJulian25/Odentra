@@ -5,7 +5,7 @@
 
 # dotenv files
 .env
-
+plantilla_UI/
 # User-specific files
 *.rsuser
 *.suo
