@@ -4,6 +4,10 @@
     <ProjectReference Include="..\Odentra.Data\Odentra.Data.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Dashboard\DTOs\" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

@@ -4,6 +4,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Odentra.Data;
 using Odentra.Data.Repositories;
 using Odentra.Services.Pacientes;
+using Odentra.Services.Odontologos;
+//using Odentra.Services.Dashboard;
+using Odentra.Services.Citas;
 
 namespace Odentra.Services;
 
@@ -21,6 +24,11 @@ public static class DependencyInjection
 
         services.AddScoped<IPacienteRepository, PacienteRepository>();
         services.AddScoped<IPacienteService, PacienteService>();
+        services.AddScoped<IOdontologoRepository, OdontologoRepository>();
+        services.AddScoped<IOdontologoService, OdontologoService>();
+        //services.AddScoped<IDashboardService, DashboardService>();
+        //services.AddScoped<ICitaRepository, CitaRepository>();
+        //services.AddScoped<ICitaService, CitaService>();
 
         return services;
     }
