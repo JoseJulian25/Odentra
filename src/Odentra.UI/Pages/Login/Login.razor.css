@@ -15,4 +15,5 @@
 .login-submit:hover { background: #1d4ed8; }
 .login-demo { margin-top: 24px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 4px; background: #f8fafc; color: #64748b; font-size: 11px; }
 .login-demo strong { color: #334155; }
+.login-error { margin-top: 12px; padding: 9px 11px; border: 1px solid #fecaca; border-radius: 4px; background: #fef2f2; color: #b91c1c; font-size: 11px; }
 @media (max-width: 720px) { .mobile-login-brand { display: flex; } }

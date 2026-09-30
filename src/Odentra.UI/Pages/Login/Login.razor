@@ -12,37 +12,43 @@
     <h1>Iniciar sesión</h1>
     <p class="login-subtitle">Ingrese sus credenciales para acceder al sistema.</p>
 
-    <EditForm Model="loginModel" OnValidSubmit="HandleLogin">
-        <DataAnnotationsValidator />
+    <form method="post" action="/account/login">
+        <AntiforgeryToken />
+        <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
         <div class="form-field">
             <label for="email">Correo electrónico</label>
-            <InputText id="email" @bind-Value="loginModel.Email" type="email" placeholder="correo@clinica.com" />
-            <ValidationMessage For="@(() => loginModel.Email)" />
+            <input id="email" name="Email" type="email" value="@loginModel.Email" placeholder="correo@clinica.com" required />
         </div>
         <div class="form-field">
             <div class="field-label-row">
                 <label for="password">Contraseña</label>
                 <a href="/login">¿Olvidó su contraseña?</a>
             </div>
-            <InputText id="password" @bind-Value="loginModel.Password" type="password" placeholder="••••••••" />
-            <ValidationMessage For="@(() => loginModel.Password)" />
+            <input id="password" name="Password" type="password" placeholder="••••••••" required />
         </div>
         <button class="login-submit" type="submit">Ingresar</button>
-    </EditForm>
+    </form>
 
-    <div class="login-demo"><strong>Demo:</strong> admin@odentra.com / cualquier contraseña</div>
+    @if (Error == "invalid")
+    {
+        <div class="login-error">Correo o contraseña incorrectos.</div>
+    }
+    else if (Error == "locked")
+    {
+        <div class="login-error">La cuenta está bloqueada temporalmente.</div>
+    }
+
+    <div class="login-demo"><strong>Demo:</strong> admin@odentra.com / OdentraAdmin123</div>
 </div>
 
 @code {
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    private string? ReturnUrl { get; set; }
+
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? Error { get; set; }
+
     private LoginModel loginModel = new() { Email = "admin@odentra.com" };
-
-    private void HandleLogin()
-    {
-        Navigation.NavigateTo("/");
-    }
-
-    [Inject]
-    private NavigationManager Navigation { get; set; } = null!;
 
     private sealed class LoginModel
     {
