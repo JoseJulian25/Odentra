@@ -7,6 +7,7 @@ using Odentra.Data.Entities;
 using Odentra.Data.Repositories;
 using Odentra.Services.Pacientes;
 using Odentra.Services.Odontologos;
+using Odentra.Services.Usuarios;
 //using Odentra.Services.Dashboard;
 //using Odentra.Services.Citas;
 
@@ -32,7 +33,7 @@ public static class DependencyInjection
         })
         .AddIdentityCookies(options =>
         {
-            options.ApplicationCookie.Configure(cookieOptions =>
+            options.ApplicationCookie?.Configure(cookieOptions =>
             {
                 cookieOptions.LoginPath = "/login";
                 cookieOptions.AccessDeniedPath = "/login?error=forbidden";
@@ -58,6 +59,7 @@ public static class DependencyInjection
         services.AddScoped<IPacienteService, PacienteService>();
         services.AddScoped<IOdontologoRepository, OdontologoRepository>();
         services.AddScoped<IOdontologoService, OdontologoService>();
+        services.AddScoped<IUsuarioService, UsuarioService>();
         //services.AddScoped<IDashboardService, DashboardService>();
         //services.AddScoped<ICitaRepository, CitaRepository>();
         //services.AddScoped<ICitaService, CitaService>();
