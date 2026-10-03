@@ -1,5 +1,5 @@
 @page "/usuarios"
-@attribute [Authorize(Roles = "Administrador")]
+@attribute [Authorize(Policy = "Usuarios.Ver")]
 @using Odentra.Data.Entities
 @using Odentra.Services.Usuarios
 @using Odentra.Services.Usuarios.DTOs
@@ -14,10 +14,14 @@
             <h1>Usuarios</h1>
             <p>Gestiona las cuentas, estados y roles de acceso a Odentra.</p>
         </div>
-        <a class="primary-action" href="/usuarios/nuevo">
-            <span aria-hidden="true">+</span>
-            Registrar usuario
-        </a>
+        <AuthorizeView Policy="Usuarios.Crear">
+            <Authorized>
+                <a class="primary-action" href="/usuarios/nuevo">
+                    <span aria-hidden="true">+</span>
+                    Registrar usuario
+                </a>
+            </Authorized>
+        </AuthorizeView>
     </header>
 
     <section class="users-toolbar" aria-label="Filtros de usuarios">
@@ -106,10 +110,12 @@
                                     </span>
                                 </td>
                                 <td class="row-actions">
-                                    <a href="/usuarios/editar/@user.Id" title="Editar usuario" aria-label="Editar @user.Nombre">Editar</a>
-                                    <button @onclick="() => ToggleStatusAsync(user)">
-                                        @(user.Estado == EstadoRegistro.Activo ? "Desactivar" : "Activar")
-                                    </button>
+                                    <AuthorizeView Policy="Usuarios.Editar">
+                                        <Authorized><a href="/usuarios/editar/@user.Id" title="Editar usuario" aria-label="Editar @user.Nombre">Editar</a></Authorized>
+                                    </AuthorizeView>
+                                    <AuthorizeView Policy="Usuarios.Desactivar">
+                                        <Authorized><button @onclick="() => ToggleStatusAsync(user)">@(user.Estado == EstadoRegistro.Activo ? "Desactivar" : "Activar")</button></Authorized>
+                                    </AuthorizeView>
                                 </td>
                             </tr>
                         }

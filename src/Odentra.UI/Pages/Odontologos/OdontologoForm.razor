@@ -1,5 +1,6 @@
 @page "/odontologo/nuevo"
 @page "/odontologo/editar/{Id:int}"
+@attribute [Authorize(Policy = "Odontologos.Editar")]
 @attribute [Authorize]
 @using Odentra.Data.Entities
 @using Odentra.Services.Odontologos

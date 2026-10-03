@@ -1,6 +1,6 @@
 @page "/usuarios/nuevo"
 @page "/usuarios/editar/{Id}"
-@attribute [Authorize(Roles = "Administrador")]
+@attribute [Authorize(Policy = "Usuarios.Editar")]
 @using Odentra.Data.Entities
 @using Odentra.Services.Usuarios
 @using Odentra.Services.Usuarios.DTOs

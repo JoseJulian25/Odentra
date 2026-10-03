@@ -1,4 +1,5 @@
 @page "/pacientes/{Id:int}"
+@attribute [Authorize(Policy = "Pacientes.Ver")]
 @attribute [Authorize]
 @using Odentra.Data.Entities
 @using Odentra.Services.Pacientes

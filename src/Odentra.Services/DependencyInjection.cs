@@ -8,6 +8,8 @@ using Odentra.Data.Repositories;
 using Odentra.Services.Pacientes;
 using Odentra.Services.Odontologos;
 using Odentra.Services.Usuarios;
+using Odentra.Services.Autenticacion;
+using Odentra.Services.Autorizacion;
 //using Odentra.Services.Dashboard;
 //using Odentra.Services.Citas;
 
@@ -54,6 +56,18 @@ public static class DependencyInjection
         .AddEntityFrameworkStores<ApplicationDbContext>()
         .AddSignInManager()
         .AddDefaultTokenProviders();
+
+        services.AddScoped<IUserClaimsPrincipalFactory<Usuario>, UsuarioClaimsPrincipalFactory>();
+        services.AddScoped<IRolService, RolService>();
+
+        services.AddAuthorization(options =>
+        {
+            foreach (var permission in PermissionCatalog.All)
+            {
+                options.AddPolicy(permission.Nombre, policy =>
+                    policy.RequireClaim(PermissionCatalog.ClaimType, permission.Nombre));
+            }
+        });
 
         services.AddScoped<IPacienteRepository, PacienteRepository>();
         services.AddScoped<IPacienteService, PacienteService>();

@@ -1,4 +1,5 @@
 @page "/pacientes"
+@attribute [Authorize(Policy = "Pacientes.Ver")]
 @attribute [Authorize]
 @using Odentra.Data.Entities
 @using Odentra.Services.Pacientes
@@ -13,7 +14,9 @@
             <h1>Pacientes</h1>
             <p>Administra la información general de los pacientes de la clínica.</p>
         </div>
-        <a class="primary-action" href="/pacientes/nuevo">+ Registrar paciente</a>
+        <AuthorizeView Policy="Pacientes.Crear">
+            <Authorized><a class="primary-action" href="/pacientes/nuevo">+ Registrar paciente</a></Authorized>
+        </AuthorizeView>
     </div>
 
     <section class="filter-panel" aria-label="Filtros de pacientes">
@@ -67,7 +70,12 @@
                                 <td>@(patient.Correo ?? "-")</td>
                                 <td>@patient.FechaRegistro.ToLocalTime().ToString("dd/MM/yyyy")</td>
                                 <td><span class="status-badge @(patient.Estado == EstadoRegistro.Activo ? "active" : "inactive")">@patient.Estado</span></td>
-                                <td class="row-actions"><a href="/pacientes/@patient.Id">Ver</a><a href="/pacientes/editar/@patient.Id">Editar</a></td>
+                                <td class="row-actions">
+                                    <a href="/pacientes/@patient.Id">Ver</a>
+                                    <AuthorizeView Policy="Pacientes.Editar">
+                                        <Authorized><a href="/pacientes/editar/@patient.Id">Editar</a></Authorized>
+                                    </AuthorizeView>
+                                </td>
                             </tr>
                         }
                     </tbody>

@@ -2,7 +2,10 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
+using Odentra.Data;
 using Odentra.Data.Entities;
+using Odentra.Services.Autorizacion;
 
 namespace Odentra.Services.Autenticacion;
 
@@ -20,6 +23,54 @@ public static class IdentitySeeder
                 var result = await roleManager.CreateAsync(new Rol { Name = roleName, Estado = EstadoRegistro.Activo });
                 EnsureSucceeded(result, $"crear el rol {roleName}");
             }
+        }
+
+        var permissions = new Dictionary<string, Permiso>();
+        foreach (var definition in PermissionCatalog.All)
+        {
+            var permission = await services.GetRequiredService<ApplicationDbContext>().Permisos
+                .SingleOrDefaultAsync(item => item.Nombre == definition.Nombre);
+            if (permission is null)
+            {
+                permission = new Permiso
+                {
+                    Nombre = definition.Nombre,
+                    Modulo = definition.Modulo,
+                    Descripcion = definition.Descripcion
+                };
+                services.GetRequiredService<ApplicationDbContext>().Permisos.Add(permission);
+            }
+
+            permissions[permission.Nombre] = permission;
+        }
+
+        await services.GetRequiredService<ApplicationDbContext>().SaveChangesAsync();
+
+        foreach (var rolePermissions in PermissionCatalog.DefaultRolePermissions)
+        {
+            var role = await roleManager.FindByNameAsync(rolePermissions.Key);
+            if (role is null) continue;
+
+            var dbContext = services.GetRequiredService<ApplicationDbContext>();
+            var assignedPermissionIds = await dbContext.RolesPermisos
+                .Where(item => item.RolId == role.Id)
+                .Select(item => item.PermisoId)
+                .ToHashSetAsync();
+
+            var missingPermissions = rolePermissions.Value
+                .Select(permission => permissions[permission])
+                .Where(permission => !assignedPermissionIds.Contains(permission.Id))
+                .Select(permission => new RolPermiso
+                {
+                    RolId = role.Id,
+                    PermisoId = permission.Id
+                })
+                .ToList();
+
+            dbContext.RolesPermisos.AddRange(missingPermissions);
+            if (missingPermissions.Count == 0) continue;
+
+            await dbContext.SaveChangesAsync();
         }
 
         var email = configuration["Authentication:AdminEmail"] ?? "admin@odentra.com";
