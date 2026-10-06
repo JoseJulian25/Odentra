@@ -10,6 +10,7 @@ public class Odontologo
     public string? Telefono { get; set; }
     public string? Correo { get; set; }
     public EstadoRegistro Estado { get; set; } = EstadoRegistro.Activo;
+    public DateTime FechaRegistro { get; set; }
     public string? UsuarioId { get; set; }
 
     public Usuario? Usuario { get; set; }

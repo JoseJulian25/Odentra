@@ -1,0 +1,17 @@
+using Odentra.Data.Entities;
+
+namespace Odentra.Services.Citas.DTOs;
+
+public sealed record CitaDetalleDto(
+    int Id,
+    string PacienteNombre,
+    int PacienteId,
+    string OdontologoNombre,
+    int OdontologoId,
+    DateOnly Fecha,
+    TimeOnly HoraInicio,
+    TimeOnly HoraFin,
+    string? Motivo,
+    string? Observaciones,
+    EstadoCita Estado,
+    DateTime FechaCreacion);

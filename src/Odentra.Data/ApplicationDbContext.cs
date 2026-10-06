@@ -81,6 +81,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(dentist => dentist.Nombres).HasMaxLength(100).IsRequired();
             entity.Property(dentist => dentist.Apellidos).HasMaxLength(100).IsRequired();
             entity.Property(dentist => dentist.Estado).HasConversion<string>().HasMaxLength(20);
+            entity.Property(dentist => dentist.FechaRegistro).HasDefaultValueSql("SYSUTCDATETIME()");
             entity.HasIndex(dentist => dentist.NumeroLicencia).IsUnique().HasFilter("[NumeroLicencia] IS NOT NULL");
             entity.HasIndex(dentist => dentist.UsuarioId).IsUnique().HasFilter("[UsuarioId] IS NOT NULL");
             entity.HasOne(dentist => dentist.Usuario)
@@ -104,8 +105,13 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         {
             entity.ToTable("Citas");
             entity.HasKey(appointment => appointment.Id);
+            entity.Property(appointment => appointment.Fecha).IsRequired();
+            entity.Property(appointment => appointment.HoraInicio).IsRequired();
+            entity.Property(appointment => appointment.HoraFin).IsRequired();
             entity.Property(appointment => appointment.Estado).HasConversion<string>().HasMaxLength(20);
             entity.Property(appointment => appointment.FechaCreacion).HasDefaultValueSql("SYSUTCDATETIME()");
+            entity.Property(appointment => appointment.Motivo).HasMaxLength(500);
+            entity.Property(appointment => appointment.Observaciones).HasMaxLength(1000);
             entity.HasIndex(appointment => new { appointment.OdontologoId, appointment.Fecha, appointment.HoraInicio });
             entity.HasOne(appointment => appointment.Paciente)
                 .WithMany(patient => patient.Citas)

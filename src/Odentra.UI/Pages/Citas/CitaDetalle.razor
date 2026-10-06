@@ -1,0 +1,176 @@
+@page "/cita/{Id:int}"
+@using Odentra.Data.Entities
+@using Odentra.Services.Citas
+@using Odentra.Services.Citas.DTOs
+@inject ICitaService CitaService
+@inject NavigationManager Navigation
+
+<PageTitle>Cita · Odentra</PageTitle>
+
+<div class="patient-detail-page">
+    @if (loading)
+    {
+        <div class="detail-state">Cargando cita...</div>
+    }
+    else if (cita is null)
+    {
+        <div class="detail-state">
+            <strong>Cita no encontrada</strong>
+            <a href="/cita">Volver a citas</a>
+        </div>
+    }
+    else
+    {
+        <div class="page-header">
+            <div>
+                <a class="back-link" href="/cita">← Citas</a>
+                <div class="title-line">
+                    <h1>Cita #@cita.Id</h1>
+                    <span class="status-badge @GetEstadoClass(cita.Estado)">
+                        @cita.Estado
+                    </span>
+                </div>
+                <p>Programada para @cita.Fecha.ToString("dddd, d 'de' MMMM 'de' yyyy", new System.Globalization.CultureInfo("es-DO")) a las @cita.HoraInicio.ToString("HH:mm")</p>
+            </div>
+            <div class="header-actions">
+                <a class="secondary-action" href="/cita/editar/@cita.Id">Editar</a>
+                <button class="primary-action" @onclick="ToggleEstadoAsync">
+                    @GetNextEstadoButtonText(cita.Estado)
+                </button>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="feedback error">@errorMessage</div>
+        }
+
+        <section class="detail-panel">
+            <div class="section-heading">
+                <h2>Información de la cita</h2>
+            </div>
+            <dl class="detail-grid">
+                <div>
+                    <dt>Fecha</dt>
+                    <dd>@cita.Fecha.ToString("dddd, d 'de' MMMM 'de' yyyy", new System.Globalization.CultureInfo("es-DO"))</dd>
+                </div>
+                <div>
+                    <dt>Hora</dt>
+                    <dd>@cita.HoraInicio.ToString("HH:mm") - @cita.HoraFin.ToString("HH:mm")</dd>
+                </div>
+                <div>
+                    <dt>Motivo</dt>
+                    <dd>@(cita.Motivo ?? "No especificado")</dd>
+                </div>
+                <div>
+                    <dt>Estado</dt>
+                    <dd><span class="status @GetEstadoClass(cita.Estado)">@cita.Estado</span></dd>
+                </div>
+            </dl>
+        </section>
+
+        <section class="detail-panel">
+            <div class="section-heading">
+                <h2>Información de participantes</h2>
+            </div>
+            <dl class="detail-grid">
+                <div>
+                    <dt>Paciente</dt>
+                    <dd>
+                        <a href="/paciente/@cita.PacienteId">@cita.PacienteNombre</a>
+                    </dd>
+                </div>
+                <div>
+                    <dt>Odontólogo</dt>
+                    <dd>
+                        <a href="/odontologo/@cita.OdontologoId">@cita.OdontologoNombre</a>
+                    </dd>
+                </div>
+            </dl>
+        </section>
+
+        @if (!string.IsNullOrWhiteSpace(cita.Observaciones))
+        {
+            <section class="detail-panel">
+                <div class="section-heading">
+                    <h2>Observaciones</h2>
+                </div>
+                <p style="color: #64748b; font-size: 13px; line-height: 1.6;">@cita.Observaciones</p>
+            </section>
+        }
+
+        <section class="detail-panel">
+            <div class="section-heading">
+                <h2>Información del sistema</h2>
+            </div>
+            <dl class="detail-grid">
+                <div>
+                    <dt>Creada</dt>
+                    <dd>@cita.FechaCreacion.ToString("dd/MM/yyyy HH:mm:ss")</dd>
+                </div>
+            </dl>
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private CitaDetalleDto? cita;
+    private bool loading = true;
+    private string? errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true;
+        cita = await CitaService.GetByIdAsync(Id);
+        loading = false;
+    }
+
+    private async Task ToggleEstadoAsync()
+    {
+        if (cita is null) return;
+        errorMessage = null;
+        try
+        {
+            var nextEstado = GetNextEstado(cita.Estado);
+            await CitaService.SetEstadoAsync(cita.Id, nextEstado);
+            cita = await CitaService.GetByIdAsync(cita.Id);
+        }
+        catch (InvalidOperationException exception)
+        {
+            errorMessage = exception.Message;
+        }
+    }
+
+    private static EstadoCita GetNextEstado(EstadoCita estado) => estado switch
+    {
+        EstadoCita.Programada => EstadoCita.Confirmada,
+        EstadoCita.Confirmada => EstadoCita.Atendida,
+        EstadoCita.Atendida => EstadoCita.Programada,
+        EstadoCita.Cancelada => EstadoCita.Programada,
+        EstadoCita.NoAsistio => EstadoCita.Programada,
+        _ => EstadoCita.Programada
+    };
+
+    private static string GetNextEstadoButtonText(EstadoCita estado) => estado switch
+    {
+        EstadoCita.Programada => "Confirmar cita",
+        EstadoCita.Confirmada => "Marcar como atendida",
+        EstadoCita.Atendida => "Reprogramar",
+        EstadoCita.Cancelada => "Reprogramar",
+        EstadoCita.NoAsistio => "Reprogramar",
+        _ => "Cambiar estado"
+    };
+
+    private static string GetEstadoClass(EstadoCita estado) => estado switch
+    {
+        EstadoCita.Programada => "scheduled",
+        EstadoCita.Confirmada => "confirmed",
+        EstadoCita.Atendida => "attended",
+        EstadoCita.Cancelada => "cancelled",
+        EstadoCita.NoAsistio => "no-show",
+        _ => ""
+    };
+}

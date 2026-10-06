@@ -1,11 +1,19 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\Odentra.Data\Odentra.Data.csproj" />
+    <Compile Remove="Dashboard\**" />
+    <EmbeddedResource Remove="Dashboard\**" />
+    <None Remove="Dashboard\**" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Dashboard\DTOs\" />
+    <Compile Include="Dashboard\DashboardService.cs" />
+    <Compile Include="Dashboard\DTOs\DashboardStatsDto.cs" />
+    <Compile Include="Dashboard\IDashboardService.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Odentra.Data\Odentra.Data.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

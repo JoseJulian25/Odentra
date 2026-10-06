@@ -152,6 +152,10 @@
         {
             errorMessage = exception.Message;
         }
+        catch (Exception exception)
+        {
+            errorMessage = $"Error al guardar: {exception.Message}";
+        }
         finally 
         { 
             saving = false; 
