@@ -12,6 +12,5 @@ public sealed record CitaDetalleDto(
     TimeOnly HoraInicio,
     TimeOnly HoraFin,
     string? Motivo,
-    string? Observaciones,
     EstadoCita Estado,
     DateTime FechaCreacion);

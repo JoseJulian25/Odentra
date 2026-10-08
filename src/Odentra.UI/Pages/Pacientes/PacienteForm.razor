@@ -22,15 +22,157 @@
     }
     else
     {
-        <EditForm Model="model" OnValidSubmit="SaveAsync">
-            <DataAnnotationsValidator />
-            @if (!string.IsNullOrWhiteSpace(errorMessage)) { <div class="feedback error">@errorMessage</div> }
-            <section class="form-panel"><div class="section-heading"><h2>Información personal</h2><span>Campos obligatorios marcados en el formulario</span></div><div class="form-grid"><div class="field"><label for="first-name">Nombres</label><InputText id="first-name" @bind-Value="model.Nombres" /><ValidationMessage For="@(() => model.Nombres)" /></div><div class="field"><label for="last-name">Apellidos</label><InputText id="last-name" @bind-Value="model.Apellidos" /><ValidationMessage For="@(() => model.Apellidos)" /></div><div class="field"><label for="identification">Identificación</label><InputText id="identification" @bind-Value="model.Identificacion" /><ValidationMessage For="@(() => model.Identificacion)" /></div><div class="field"><label for="birth-date">Fecha de nacimiento</label><InputDate id="birth-date" @bind-Value="model.FechaNacimiento" /></div><div class="field"><label for="sex">Sexo</label><InputSelect id="sex" @bind-Value="model.Sexo"><option value="">Seleccionar</option><option value="Femenino">Femenino</option><option value="Masculino">Masculino</option><option value="Otro">Otro</option></InputSelect></div></div></section>
-            <section class="form-panel"><div class="section-heading"><h2>Información de contacto</h2></div><div class="form-grid"><div class="field"><label for="phone">Teléfono</label><InputText id="phone" @bind-Value="model.Telefono" /><ValidationMessage For="@(() => model.Telefono)" /></div><div class="field"><label for="email">Correo electrónico</label><InputText id="email" type="email" @bind-Value="model.Correo" /><ValidationMessage For="@(() => model.Correo)" /></div><div class="field field-wide"><label for="address">Dirección</label><InputText id="address" @bind-Value="model.Direccion" /></div></div></section>
-            <section class="form-panel"><div class="section-heading"><h2>Contacto de emergencia</h2></div><div class="form-grid"><div class="field"><label for="emergency-name">Nombre</label><InputText id="emergency-name" @bind-Value="model.ContactoEmergenciaNombre" /></div><div class="field"><label for="emergency-phone">Teléfono</label><InputText id="emergency-phone" @bind-Value="model.ContactoEmergenciaTelefono" /></div><div class="field"><label for="emergency-relation">Relación</label><InputText id="emergency-relation" @bind-Value="model.ContactoEmergenciaRelacion" /></div></div></section>
-            @if (IsEditing) { <div class="status-checkbox"><label><input type="checkbox" @bind="IsPatientActive" /> <span>Activo</span></label></div> }
-            <div class="form-actions"><a class="cancel-action" href="/pacientes">Cancelar</a><button class="primary-action" type="submit" disabled="@saving">@(saving ? "Guardando..." : "Guardar paciente")</button></div>
-        </EditForm>
+<EditForm Model="model" OnValidSubmit="SaveAsync">
+    <DataAnnotationsValidator />
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="feedback error">@errorMessage</div>
+    }
+
+    <section class="form-panel">
+        <div class="section-heading">
+            <h2>Información personal</h2>
+            <span>Campos obligatorios marcados en el formulario</span>
+        </div>
+
+        <div class="form-grid">
+
+            <div class="field">
+                <label for="first-name">Nombres</label>
+                <InputText id="first-name" @bind-Value="model.Nombres" />
+                <ValidationMessage For="@(() => model.Nombres)" />
+            </div>
+
+            <div class="field">
+                <label for="last-name">Apellidos</label>
+                <InputText id="last-name" @bind-Value="model.Apellidos" />
+                <ValidationMessage For="@(() => model.Apellidos)" />
+            </div>
+
+            <div class="field">
+                <label for="identification">Identificación</label>
+                <InputText id="identification" @bind-Value="model.Identificacion" />
+                <ValidationMessage For="@(() => model.Identificacion)" />
+            </div>
+
+            <div class="field">
+                <label for="birth-date">Fecha de nacimiento</label>
+                <InputDate id="birth-date" @bind-Value="model.FechaNacimiento" />
+                <ValidationMessage For="@(() => model.FechaNacimiento)" />
+            </div>
+
+            <div class="field">
+                <label for="sex">Sexo</label>
+                <InputSelect id="sex" @bind-Value="model.Sexo">
+                    <option value="" disabled selected hidden>Seleccione un sexo</option>
+                    <option value="Femenino">Femenino</option>
+                    <option value="Masculino">Masculino</option>
+                    <option value="Otro">Otro</option>
+                </InputSelect>
+                <ValidationMessage For="@(() => model.Sexo)" />
+            </div>
+
+                   <div class="field">
+                    <label for="sex">Tipo de sangre</label>
+                    <InputSelect id="tipo-sangre" @bind-Value="model.TipoSangre">
+                        <option value="" disabled selected hidden>Seleccione su tipo de sangre</option>
+                            <option value="O+">O Rh Positivo (O+)</option>
+                            <option value="O-">O Rh Negativo (O-)</option>
+                            <option value="A+">A Rh Positivo (A+)</option>
+                            <option value="A-">A Rh Negativo (A-)</option>
+                            <option value="B+">B Rh Positivo (B+)</option>
+                            <option value="B-">B Rh Negativo (B-)</option>
+                            <option value="AB+">AB Rh Positivo (AB+)</option>
+                            <option value="AB-">AB Rh Negativo (AB-)</option>
+                    </InputSelect>
+                    <ValidationMessage For="@(() => model.TipoSangre)" />
+                </div>
+
+        </div>
+    </section>
+
+    <section class="form-panel">
+        <div class="section-heading">
+            <h2>Información de contacto</h2>
+        </div>
+
+        <div class="form-grid">
+
+            <div class="field">
+                <label for="phone">Teléfono</label>
+                <InputText id="phone" @bind-Value="model.Telefono" />
+                <ValidationMessage For="@(() => model.Telefono)" />
+            </div>
+
+            <div class="field">
+                <label for="email">Correo electrónico</label>
+                <InputText id="email" type="email" @bind-Value="model.Correo" />
+                <ValidationMessage For="@(() => model.Correo)" />
+            </div>
+
+            <div class="field field-wide">
+                <label for="address">Dirección</label>
+                <InputText id="address" @bind-Value="model.Direccion" />
+                <ValidationMessage For="@(() => model.Direccion)" />
+            </div>
+
+        </div>
+    </section>
+
+    <section class="form-panel">
+        <div class="section-heading">
+            <h2>Contacto de emergencia</h2>
+        </div>
+
+        <div class="form-grid">
+
+            <div class="field">
+                <label for="emergency-name">Nombre</label>
+                <InputText id="emergency-name" @bind-Value="model.ContactoEmergenciaNombre" />
+                <ValidationMessage For="@(() => model.ContactoEmergenciaNombre)" />
+            </div>
+
+            <div class="field">
+                <label for="emergency-phone">Teléfono</label>
+                <InputText id="emergency-phone" @bind-Value="model.ContactoEmergenciaTelefono" />
+                <ValidationMessage For="@(() => model.ContactoEmergenciaTelefono)" />
+            </div>
+
+                        <div class="field">
+            <label for="emergency-relation">Relación</label>
+            <InputSelect id="emergency-relation" @bind-Value="model.ContactoEmergenciaRelacion">
+                <option value="" disabled selected hidden>Seleccione una relación</option>
+                <option value="Familiar">Familiar</option>
+                <option value="Amigo(a)">Amigo/a</option>
+                <option value="Otro">Otro</option>
+            </InputSelect>
+            <ValidationMessage For="@(() => model.ContactoEmergenciaRelacion)" />
+            </div>
+
+        </div>
+    </section>
+
+    @if (IsEditing)
+    {
+        <div class="status-checkbox">
+            <label>
+                <input type="checkbox" @bind="IsPatientActive" />
+                <span>Activo</span>
+            </label>
+        </div>
+    }
+
+    <div class="form-actions">
+        <a class="cancel-action" href="/pacientes">Cancelar</a>
+
+        <button class="primary-action" type="submit" disabled="@saving">
+            @(saving ? "Guardando..." : "Guardar paciente")
+        </button>
+    </div>
+</EditForm>
+
+
     }
 </div>
 

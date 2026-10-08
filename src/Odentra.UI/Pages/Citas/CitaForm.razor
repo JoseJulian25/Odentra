@@ -119,14 +119,53 @@
                 <div class="form-grid">
                     <div class="field">
                         <label for="reason">Motivo de la cita</label>
-                        <InputText id="reason" @bind-Value="model.Motivo" />
-                        <ValidationMessage For="@(() => model.Motivo)" />
-                    </div>
+                        <InputSelect id="reason" @bind-Value="model.Motivo">
+                            <option value="" disabled selected hidden>Seleccione el motivo principal</option>
 
-                    <div class="field field-wide">
-                        <label for="observations">Observaciones</label>
-                        <textarea id="observations" @bind="model.Observaciones" rows="4" style="width: 100%; padding: 9px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; font-family: inherit;"></textarea>
-                        <ValidationMessage For="@(() => model.Observaciones)" />
+                            <optgroup label="🧼 Prevención y Mantenimiento">
+                                <option value="Limpieza dental profesional (profilaxis)">Limpieza dental profesional (profilaxis)</option>
+                                <option value="Revisión o chequeo general de rutina">Revisión o chequeo general de rutina</option>
+                                <option value="Aplicación de flúor o selladores">Aplicación de flúor o selladores</option>
+                            </optgroup>
+
+                            <optgroup label="🦷 Dolor y Restauración">
+                                <option value="Tratamiento de caries (empastes/resinas)">Tratamiento de caries (empastes/resinas)</option>
+                                <option value="Tratamiento de conducto (endodoncia)">Tratamiento de conducto (endodoncia)</option>
+                                <option value="Reparación de un diente roto o astillado">Reparación de un diente roto o astillado</option>
+                                <option value="Dolor de muela severo o sensibilidad">Dolor de muela severo o sensibilidad</option>
+                            </optgroup>
+
+                            <optgroup label="🛠️ Ortodoncia">
+                                <option value="Instalación de brackets o alineadores">Instalación de brackets o alineadores</option>
+                                <option value="Ajuste de brackets o cambio de gomas">Ajuste de brackets o cambio de gomas</option>
+                                <option value="Pegado de un bracket desprendido">Pegado de un bracket desprendido</option>
+                                <option value="Retiro de brackets y retenedores">Retiro de brackets y retenedores</option>
+                            </optgroup>
+
+                            <optgroup label="🩸 Cirugías y Extracciones">
+                                <option value="Extracción de muelas del juicio (cordales)">Extracción de muelas del juicio (cordales)</option>
+                                <option value="Extracción de dientes dañados o de leche">Extracción de dientes dañados o de leche</option>
+                                <option value="Cirugía de encías">Cirugía de encías</option>
+                            </optgroup>
+
+                            <optgroup label="✨ Estética y Reemplazo Dental">
+                                <option value="Blanqueamiento dental">Blanqueamiento dental</option>
+                                <option value="Diseño de sonrisa o carillas">Diseño de sonrisa o carillas</option>
+                                <option value="Colocación de implantes dentales">Colocación de implantes dentales</option>
+                                <option value="Toma de moldes para prótesis/coronas">Toma de moldes para prótesis/coronas</option>
+                                <option value="Ajuste o reparación de prótesis dental">Ajuste o reparación de prótesis dental</option>
+                            </optgroup>
+
+                            <optgroup label="🚨 Emergencias y Otros">
+                                <option value="Sangrado, inflamación o dolor de encías">Sangrado, inflamación o dolor de encías</option>
+                                <option value="Mal aliento persistente (halitosis)">Mal aliento persistente (halitosis)</option>
+                                <option value="Tratamiento para bruxismo (placa)">Tratamiento para bruxismo (placa)</option>
+                                <option value="Evaluación por golpe o trauma en la boca">Evaluación por golpe o trauma en la boca</option>
+                                <option value="Otro motivo">Otro motivo...</option>
+                            </optgroup>
+
+                        </InputSelect>
+                        <ValidationMessage For="@(() => model.Motivo)" />
                     </div>
                 </div>
             </section>
@@ -386,6 +425,30 @@
                     return;
                 }
             }
+
+            var citasDelDia2 = await CitaService.SearchAsync(model.Fecha, null, null, null);
+            var pacienteSeleccionado = pacientes.FirstOrDefault(o => o.Id == model.PacienteId);
+
+            if(pacientes != null)
+            {
+                bool horarioOcupado = citasDelDia2.Any(c =>
+                c.PacienteNombre == pacienteSeleccionado.NombreCompleto &&
+                c.Estado != EstadoCita.Cancelada &&
+                c.Estado != EstadoCita.NoAsistio &&
+
+                (!IsEditing || c.Id != model.Id) &&
+
+                (model.HoraInicio < c.HoraFin && model.HoraFin > c.HoraInicio)
+                );
+
+                if (horarioOcupado)
+                {
+                    errorMessage = $"El Paciente {pacienteSeleccionado.NombreCompleto} ya tiene una cita ocupando ese horario. Por favor selecciona otra hora.";
+                    saving = false;
+                    return;
+                }
+            }
+
             // ============================================
 
             if (IsEditing)

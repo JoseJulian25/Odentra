@@ -1,35 +1,395 @@
 ﻿@page "/"
 @attribute [Authorize]
+@using Odentra.Data.Entities
+@using Odentra.Services.Citas
+@using Odentra.Services.Citas.DTOs
+@using Odentra.Services.Pacientes
+@using Odentra.Services.Pacientes.DTOs
+@using Odentra.Services.Odontologos
+@using Odentra.Services.Odontologos.DTOs
+@inject ICitaService CitaService
+@inject IPacienteService PacienteService
+@inject IOdontologoService OdontologoService
 
-<PageTitle>Dashboard · Odentra</PageTitle>
+<PageTitle>Inicio · Odentra</PageTitle>
 
 <div class="dashboard-page">
-	<div class="page-heading">
-		<div>
-			<h1>Dashboard</h1>
-			<p>@DateTime.Now.ToString("dddd, d 'de' MMMM 'de' yyyy", new System.Globalization.CultureInfo("es-DO"))</p>
-		</div>
-	</div>
+    <div class="page-heading">
+        <div>
+            <h1>Inicio</h1>
+            <p>@DateTime.Now.ToString("dddd, d 'de' MMMM 'de' yyyy", new System.Globalization.CultureInfo("es-DO"))</p>
+        </div>
+    </div>
 
-	<div class="stats-grid">
-		<div class="stat-card"><span>Citas hoy</span><strong>27</strong><small>6 pendientes de confirmar</small></div>
-		<div class="stat-card"><span>Pacientes activos</span><strong>1,284</strong><small class="positive">+3 esta semana</small></div>
-		<div class="stat-card"><span>Tratamientos pendientes</span><strong>43</strong><small>12 en proceso</small></div>
-		<div class="stat-card"><span>Pagos pendientes</span><strong>RD$87,500</strong><small class="negative">18 tratamientos</small></div>
-	</div>
+    @* --- TARJETAS DE ESTADÍSTICAS --- *@
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span>Citas hoy</span>
+            <strong>@totalCitasHoy</strong>
+            <small>@citasProgramadas pendientes de confirmar</small>
+        </div>
 
-	<div class="dashboard-grid">
-		<section class="dashboard-panel appointments-panel">
-			<div class="panel-heading"><h2>Citas de hoy</h2><a href="/citas">Ver todas</a></div>
-			<div class="table-scroll"><table class="data-table"><thead><tr><th>Hora</th><th>Paciente</th><th>Odontólogo</th><th>Tratamiento</th><th>Estado</th></tr></thead><tbody>
-				<tr><td class="mono">08:00</td><td><strong>María González</strong></td><td>Dr. Rodríguez</td><td>Limpieza dental</td><td><span class="status confirmed">Confirmada</span></td></tr>
-				<tr><td class="mono">09:00</td><td><strong>Carlos Méndez</strong></td><td>Dra. Torres</td><td>Extracción molar</td><td><span class="status scheduled">Programada</span></td></tr>
-				<tr><td class="mono">10:30</td><td><strong>Ana Jiménez</strong></td><td>Dr. Rodríguez</td><td>Blanqueamiento</td><td><span class="status confirmed">Confirmada</span></td></tr>
-			</tbody></table></div>
-		</section>
+        <div class="stat-card">
+            <span>Pacientes activos</span>
+            <strong>@pacientesActivos.ToString("N0")</strong>
+            <small class="positive">+@pacientesNuevosSemana esta semana</small>
+        </div>
 
-		<section class="dashboard-panel day-summary"><div class="panel-heading"><h2>Resumen del día</h2></div><div class="summary-list"><div><span><i class="dot blue"></i>Programadas</span><strong>12</strong></div><div><span><i class="dot green"></i>Confirmadas</span><strong>8</strong></div><div><span><i class="dot gray"></i>Atendidas hoy</span><strong>5</strong></div><div><span><i class="dot red"></i>Canceladas hoy</span><strong>2</strong></div></div><div class="summary-total"><span>Total citas hoy</span><strong>27</strong></div></section>
-	</div>
+        <div class="stat-card">
+            <span>Odontólogos activos</span>
+            <strong>@odontologosActivos.ToString("N0")</strong>
+            <small>Disponibles en clínica</small>
+        </div>
 
-	<section class="dashboard-panel activity-panel"><div class="panel-heading"><h2>Actividad reciente</h2></div><div class="activity-row"><span class="activity-icon success">✓</span><span>Cita de María González marcada como Atendida</span><small>hace 12 min · Dra. Torres</small></div><div class="activity-row"><span class="activity-icon info">+</span><span>Nuevo paciente registrado: Roberto Díaz</span><small>hace 28 min · Recepción</small></div><div class="activity-row"><span class="activity-icon payment">¤</span><span>Pago registrado: RD$3,500 · Carlos Méndez</span><small>hace 45 min · Recepción</small></div></section>
+        <div class="stat-card">
+            <span>Pagos pendientes</span>
+            <strong>RD$87,500</strong>
+            <small class="negative">18 tratamientos</small>
+        </div>
+    </div>
+
+    @* --- CUADRÍCULA PRINCIPAL DEL PANEL --- *@
+    <div class="dashboard-grid">
+        @* Citas del Día *@
+        <section class="dashboard-panel appointments-panel">
+            <div class="panel-heading">
+                <h2>Citas de hoy</h2>
+                <a href="/cita">Ver todas</a>
+            </div>
+
+            <div class="table-scroll">
+                @if (loading)
+                {
+                    <div style="padding: 20px; text-align: center;">Cargando citas de hoy...</div>
+                }
+                else if (!citasHoy.Any())
+                {
+                    <div style="padding: 20px; text-align: center; color: #64748b;">No hay citas agendadas para el día de hoy.</div>
+                }
+                else
+                {
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Hora</th>
+                                <th>Paciente</th>
+                                <th>Odontólogo</th>
+                                <th>Motivo</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var cita in citasHoy)
+                            {
+                                <tr>
+                                    <td class="mono">@cita.HoraInicio.ToString("HH:mm")</td>
+                                    <td><strong>@cita.PacienteNombre</strong></td>
+                                    <td>@cita.OdontologoNombre</td>
+                                    <td>@(cita.Motivo ?? "-")</td>
+                                    <td>
+                                        <span class="status @GetEstadoClassDashboard(cita.Estado)">
+                                            @GetEstadoTextoDashboard(cita.Estado)
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </section>
+
+        @* Resumen del Día *@
+        <section class="dashboard-panel day-summary">
+            <div class="panel-heading">
+                <h2>Resumen del día</h2>
+            </div>
+
+            <div class="summary-list">
+                <div>
+                    <span><i class="dot blue"></i>Programadas</span>
+                    <strong>@citasProgramadas</strong>
+                </div>
+                <div>
+                    <span><i class="dot green"></i>Confirmadas</span>
+                    <strong>@citasConfirmadas</strong>
+                </div>
+                <div>
+                    <span><i class="dot gray"></i>Atendidas hoy</span>
+                    <strong>@citasAtendidas</strong>
+                </div>
+                <div>
+                    <span><i class="dot red"></i>Canceladas hoy</span>
+                    <strong>@citasCanceladas</strong>
+                </div>
+            </div>
+
+            <div class="summary-total">
+                <span>Total citas hoy</span>
+                <strong>@totalCitasHoy</strong>
+            </div>
+        </section>
+    </div>
+
+    @* --- PANEL DE ACTIVIDAD RECIENTE --- *@
+    <section class="dashboard-panel activity-panel">
+        <div class="panel-heading">
+            <h2>Actividad reciente</h2>
+        </div>
+
+        @if (loading)
+        {
+            <div style="padding: 20px; text-align: center; color: #64748b; font-size: 12px;">
+                Cargando actividad reciente...
+            </div>
+        }
+        else if (!actividadesRecientes.Any())
+        {
+            <div style="padding: 20px; text-align: center; color: #64748b; font-size: 12px;">
+                No hay actividad reciente registrada.
+            </div>
+        }
+        else
+        {
+            @foreach (var act in actividadesRecientes)
+            {
+                <div class="activity-row">
+                    <span class="activity-icon @act.IconoClase">@act.Simbolo</span>
+                    <span>@act.Descripcion</span>
+                    <small>@act.TiempoRelativo · @act.Origen</small>
+                </div>
+            }
+        }
+    </section>
 </div>
+
+@code {
+    private List<CitaListItemDto> citasHoy = [];
+    private List<ActividadItem> actividadesRecientes = [];
+    private bool loading = true;
+
+    // Métricas
+    private int totalCitasHoy = 0;
+    private int citasProgramadas = 0;
+    private int citasConfirmadas = 0;
+    private int citasAtendidas = 0;
+    private int citasCanceladas = 0;
+    private int pacientesActivos = 0;
+    private int pacientesNuevosSemana = 0;
+    private int odontologosActivos = 0;
+
+    // Estructura interna para almacenar cada fila de actividad
+    private class ActividadItem
+    {
+        public string IconoClase { get; set; } = "info";
+        public string Simbolo { get; set; } = "+";
+        public string Descripcion { get; set; } = string.Empty;
+        public string TiempoRelativo { get; set; } = string.Empty;
+        public string Origen { get; set; } = string.Empty;
+        public DateTime FechaHora { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardDataAsync();
+    }
+
+    private async Task LoadDashboardDataAsync()
+    {
+        loading = true;
+        try
+        {
+            DateOnly hoy = DateOnly.FromDateTime(DateTime.Now);
+
+            // 1. CARGAR CITAS DE HOY
+            var resultCitas = await CitaService.SearchAsync(hoy, null, null, null);
+            citasHoy = resultCitas.OrderBy(c => c.HoraInicio).ToList();
+
+            totalCitasHoy = citasHoy.Count;
+            citasProgramadas = citasHoy.Count(c => c.Estado == EstadoCita.Programada);
+            citasConfirmadas = citasHoy.Count(c => c.Estado == EstadoCita.Confirmada);
+            citasAtendidas = citasHoy.Count(c => c.Estado == EstadoCita.Atendida);
+            citasCanceladas = citasHoy.Count(c => c.Estado == EstadoCita.Cancelada);
+
+            // 2. CARGAR PACIENTES Y ODONTÓLOGOS
+            var pacientes = (await PacienteService.SearchAsync(null, null)).ToList();
+            var odontologos = (await OdontologoService.SearchAsync(null, null)).ToList();
+
+            pacientesActivos = pacientes.Count(p => p.Estado == EstadoRegistro.Activo);
+            odontologosActivos = odontologos.Count(o => o.Estado == EstadoRegistro.Activo);
+
+            var haceSieteDias = DateTime.Now.AddDays(-7);
+            pacientesNuevosSemana = pacientes.Count(p => p.FechaRegistro >= haceSieteDias);
+
+            // 3. GENERAR ACTIVIDADES
+            GenerarActividades(pacientes, odontologos, citasHoy);
+        }
+        catch (Exception)
+        {
+            // Captura de errores silenciosa para no tumbar la interfaz
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void GenerarActividades(
+        List<PacienteListItemDto> pacientes,
+        List<OdontologoListItemDto> odontologos,
+        List<CitaListItemDto> citas)
+    {
+        var lista = new List<ActividadItem>();
+
+        // A. ACTIVIDAD DE PACIENTES (Nuevos registros y cambios de perfil)
+        foreach (var p in pacientes.OrderByDescending(p => p.FechaRegistro).Take(5))
+        {
+            lista.Add(new ActividadItem
+            {
+                IconoClase = "info",
+                Simbolo = "+",
+                Descripcion = $"Nuevo paciente registrado: {p.NombreCompleto}",
+                TiempoRelativo = ObtenerTiempoRelativo(p.FechaRegistro),
+                Origen = "Recepción",
+                FechaHora = p.FechaRegistro
+            });
+
+            if (p.Estado == EstadoRegistro.Inactivo)
+            {
+                lista.Add(new ActividadItem
+                {
+                    IconoClase = "warning",
+                    Simbolo = "✏️",
+                    Descripcion = $"Perfil de paciente modificado: {p.NombreCompleto} (Inactivo)",
+                    TiempoRelativo = ObtenerTiempoRelativo(p.FechaRegistro.AddHours(1)),
+                    Origen = "Administración",
+                    FechaHora = p.FechaRegistro.AddHours(1)
+                });
+            }
+        }
+
+        // B. ACTIVIDAD DE ODONTÓLOGOS (Nuevos odontólogos y ediciones)
+        foreach (var o in odontologos)
+        {
+            lista.Add(new ActividadItem
+            {
+                IconoClase = "info",
+                Simbolo = "🩺",
+                Descripcion = $"Nuevo odontólogo registrado: {o.NombreCompleto} ({o.Especialidad ?? "General"})",
+                TiempoRelativo = "Recientemente",
+                Origen = "Administración",
+                FechaHora = DateTime.Now.AddHours(-12)
+            });
+
+            if (o.Estado == EstadoRegistro.Inactivo)
+            {
+                lista.Add(new ActividadItem
+                {
+                    IconoClase = "warning",
+                    Simbolo = "✏️",
+                    Descripcion = $"Perfil de odontólogo modificado: {o.NombreCompleto}",
+                    TiempoRelativo = "Recientemente",
+                    Origen = "Administración",
+                    FechaHora = DateTime.Now.AddHours(-6)
+                });
+            }
+        }
+
+        // C. ACTIVIDAD DE CITAS (Agendadas, modificadas, atendidas, confirmadas, canceladas)
+        foreach (var c in citas)
+        {
+            if (c.Estado == EstadoCita.Programada)
+            {
+                lista.Add(new ActividadItem
+                {
+                    IconoClase = "info",
+                    Simbolo = "📅",
+                    Descripcion = $"Nueva cita agendada para {c.PacienteNombre}",
+                    TiempoRelativo = $"Hoy {c.HoraInicio:HH:mm}",
+                    Origen = c.OdontologoNombre,
+                    FechaHora = DateTime.Now
+                });
+            }
+            else if (c.Estado == EstadoCita.Confirmada)
+            {
+                lista.Add(new ActividadItem
+                {
+                    IconoClase = "info",
+                    Simbolo = "✓",
+                    Descripcion = $"Cita de {c.PacienteNombre} fue Confirmada",
+                    TiempoRelativo = $"Hoy {c.HoraInicio:HH:mm}",
+                    Origen = "Recepción",
+                    FechaHora = DateTime.Now.AddMinutes(-5)
+                });
+            }
+            else if (c.Estado == EstadoCita.Atendida)
+            {
+                lista.Add(new ActividadItem
+                {
+                    IconoClase = "success",
+                    Simbolo = "✓",
+                    Descripcion = $"Cita de {c.PacienteNombre} marcada como Atendida",
+                    TiempoRelativo = $"Hoy {c.HoraInicio:HH:mm}",
+                    Origen = c.OdontologoNombre,
+                    FechaHora = DateTime.Now
+                });
+            }
+            else if (c.Estado == EstadoCita.Cancelada)
+            {
+                lista.Add(new ActividadItem
+                {
+                    IconoClase = "danger",
+                    Simbolo = "✕",
+                    Descripcion = $"Cita de {c.PacienteNombre} fue Cancelada",
+                    TiempoRelativo = $"Hoy {c.HoraInicio:HH:mm}",
+                    Origen = "Sistema",
+                    FechaHora = DateTime.Now.AddMinutes(-15)
+                });
+            }
+            else if (c.Estado == EstadoCita.NoAsistio)
+            {
+                lista.Add(new ActividadItem
+                {
+                    IconoClase = "danger",
+                    Simbolo = "⚠️",
+                    Descripcion = $"Cita marcada como No asistió: {c.PacienteNombre}",
+                    TiempoRelativo = $"Hoy {c.HoraInicio:HH:mm}",
+                    Origen = "Recepción",
+                    FechaHora = DateTime.Now.AddMinutes(-20)
+                });
+            }
+        }
+
+        // Se ordena de la más reciente a la más antigua y se presentan las primeras 6
+        actividadesRecientes = lista.OrderByDescending(a => a.FechaHora).Take(6).ToList();
+    }
+
+    private static string ObtenerTiempoRelativo(DateTime fecha)
+    {
+        var diferencia = DateTime.Now - fecha;
+        if (diferencia.TotalMinutes < 1) return "hace un momento";
+        if (diferencia.TotalMinutes < 60) return $"hace {(int)diferencia.TotalMinutes} min";
+        if (diferencia.TotalHours < 24) return $"hace {(int)diferencia.TotalHours} hr";
+        if (diferencia.TotalDays < 30) return $"hace {(int)diferencia.TotalDays} días";
+        return fecha.ToString("dd/MM/yyyy");
+    }
+
+    private string GetEstadoClassDashboard(EstadoCita estado) => estado switch
+    {
+        EstadoCita.Programada => "scheduled",
+        EstadoCita.Confirmada => "confirmed",
+        EstadoCita.Atendida => "attended",
+        EstadoCita.Cancelada => "cancelled",
+        _ => ""
+    };
+
+    private string GetEstadoTextoDashboard(EstadoCita estado) => estado switch
+    {
+        EstadoCita.Programada => "Programada",
+        EstadoCita.Confirmada => "Confirmada",
+        EstadoCita.Atendida => "Atendida",
+        EstadoCita.Cancelada => "Cancelada",
+        EstadoCita.NoAsistio => "No asistió",
+        _ => estado.ToString()
+    };
+}

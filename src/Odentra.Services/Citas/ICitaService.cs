@@ -1,5 +1,4 @@
 using Odentra.Data.Entities;
-using Odentra.Data.Repositories;
 using Odentra.Services.Citas.DTOs;
 
 namespace Odentra.Services.Citas;

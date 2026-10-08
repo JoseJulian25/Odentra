@@ -1,5 +1,5 @@
-using System.ComponentModel.DataAnnotations;
 using Odentra.Data.Entities;
+using System.ComponentModel.DataAnnotations;
 
 namespace Odentra.Services.Pacientes.DTOs;
 
@@ -23,6 +23,9 @@ public sealed class PacienteFormDto
 
     [StringLength(20)]
     public string? Sexo { get; set; }
+
+    [StringLength(10)]
+    public string? TipoSangre { get; set; }
 
     [StringLength(30)]
     public string? Telefono { get; set; }

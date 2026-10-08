@@ -8,6 +8,7 @@ public class Paciente
     public string Apellidos { get; set; } = string.Empty;
     public DateOnly? FechaNacimiento { get; set; }
     public string? Sexo { get; set; }
+    public string? TipoSangre { get; set; }
     public string? Telefono { get; set; }
     public string? Correo { get; set; }
     public string? Direccion { get; set; }
