@@ -14,7 +14,7 @@
             <span class="nav-section">General</span>
             <NavLink href="/" Match="NavLinkMatch.All" class="nav-item">
                 <span class="nav-icon">▦</span>
-                Dashboard
+                Inicio
             </NavLink>
 
             @if (HasPermission("Pacientes.Ver") || HasPermission("Odontologos.Ver") || HasPermission("Citas.Ver"))
@@ -30,7 +30,7 @@
                 }
                 @if (HasPermission("Citas.Ver"))
                 {
-                 <NavLink href="/cita" class="nav-item"><span class="nav-icon">□</span>Citas</NavLink>
+                    <NavLink href="/cita" class="nav-item"><span class="nav-icon">□</span>Citas</NavLink>
                 }
             }
 
@@ -80,8 +80,23 @@
                 @if (HasPermission("Reportes.Ver"))
                 {
                     <NavLink href="/reportes" class="nav-item"><span class="nav-icon">▥</span>Reportes</NavLink>
+
                 }
             }
+
+            @* --- SECCIÓN DE CONFIGURACIÓN  --- *@
+            <span class="nav-section">Configuración</span>
+            <NavLink href="/acercaDe" class="nav-item">
+                <span class="nav-icon">⌸</span>
+                Acerca De
+            </NavLink>
+
+            @* --- SECCIÓN DE AYUDA --- *@
+            <span class="nav-section"> Ayuda </span>
+            <NavLink  href="/centro-ayuda" class="nav-item">
+                    <span class="nav-icon">❓</span>
+                    Centro de Ayuda
+                </NavLink>
         </nav>
 
         <div class="sidebar-user">
@@ -107,8 +122,8 @@
 </div>
 
 <div id="blazor-error-ui">
-    An unhandled error has occurred.
-    <a href="" class="reload">Reload</a>
+    Se ha producido un error no controlado.
+    <a href="" class="reload">Recargar</a>
     <a class="dismiss">🗙</a>
 </div>
 
@@ -118,11 +133,12 @@
     private string UserRole = "Sin rol";
     private string UserInitials = "US";
     private ClaimsPrincipal CurrentUser = new();
+
     private string CurrentTitle => Navigation.Uri.ToLowerInvariant() switch
     {
         var uri when uri.Contains("pacientes") => "Pacientes",
         var uri when uri.Contains("odontologos") => "Odontólogos",
-        var uri when uri.Contains("citas") => "Citas",
+        var uri when uri.Contains("cita") => "Citas", // Se ajustó "citas" por "cita" para coincidir con tus rutas
         var uri when uri.Contains("historia") => "Historia clínica",
         var uri when uri.Contains("odontograma") => "Odontograma",
         var uri when uri.Contains("tratamientos") => "Tratamientos",
@@ -131,6 +147,7 @@
         var uri when uri.Contains("roles") => "Roles y permisos",
         var uri when uri.Contains("auditoria") => "Auditoría",
         var uri when uri.Contains("reportes") => "Reportes",
+        var uri when uri.Contains("empresa") => "La Empresa", // Mapeo de título para la nueva página
         _ => "Dashboard"
     };
 
