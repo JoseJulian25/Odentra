@@ -1,5 +1,5 @@
-using System.ComponentModel.DataAnnotations;
 using Odentra.Data.Entities;
+using System.ComponentModel.DataAnnotations;
 
 namespace Odentra.Services.Usuarios.DTOs;
 

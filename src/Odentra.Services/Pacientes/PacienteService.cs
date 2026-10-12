@@ -89,6 +89,7 @@ public sealed class PacienteService(IPacienteRepository repository) : IPacienteS
         patient.Identificacion = identification;
         patient.FechaNacimiento = model.FechaNacimiento;
         patient.Sexo = Normalize(model.Sexo);
+        patient.TipoSangre = Normalize(model.TipoSangre);
         patient.Telefono = Normalize(model.Telefono);
         patient.Correo = Normalize(model.Correo);
         patient.Direccion = Normalize(model.Direccion);
@@ -108,6 +109,7 @@ public sealed class PacienteService(IPacienteRepository repository) : IPacienteS
         Identificacion = patient.Identificacion,
         FechaNacimiento = patient.FechaNacimiento,
         Sexo = patient.Sexo,
+        TipoSangre = patient.TipoSangre,
         Telefono = patient.Telefono,
         Correo = patient.Correo,
         Direccion = patient.Direccion,
@@ -123,6 +125,7 @@ public sealed class PacienteService(IPacienteRepository repository) : IPacienteS
         patient.Identificacion,
         patient.FechaNacimiento,
         patient.Sexo,
+        patient.TipoSangre,
         patient.Telefono,
         patient.Correo,
         patient.Direccion,

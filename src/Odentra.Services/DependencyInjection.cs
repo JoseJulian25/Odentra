@@ -1,17 +1,17 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Odentra.Data;
 using Odentra.Data.Entities;
 using Odentra.Data.Repositories;
-using Odentra.Services.Pacientes;
-using Odentra.Services.Odontologos;
-using Odentra.Services.Usuarios;
 using Odentra.Services.Autenticacion;
 using Odentra.Services.Autorizacion;
-//using Odentra.Services.Dashboard;
 using Odentra.Services.Citas;
+using Odentra.Services.Dashboard;
+using Odentra.Services.Odontologos;
+using Odentra.Services.Pacientes;
+using Odentra.Services.Usuarios;
 
 namespace Odentra.Services;
 
@@ -74,7 +74,7 @@ public static class DependencyInjection
         services.AddScoped<IOdontologoRepository, OdontologoRepository>();
         services.AddScoped<IOdontologoService, OdontologoService>();
         services.AddScoped<IUsuarioService, UsuarioService>();
-        //services.AddScoped<IDashboardService, DashboardService>();
+        services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<ICitaRepository, CitaRepository>();
         services.AddScoped<ICitaService, CitaService>();
 
