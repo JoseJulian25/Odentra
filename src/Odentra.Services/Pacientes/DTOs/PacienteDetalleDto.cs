@@ -9,6 +9,7 @@ public sealed record PacienteDetalleDto(
     string? Identificacion,
     DateOnly? FechaNacimiento,
     string? Sexo,
+    string? TipoSangre,
     string? Telefono,
     string? Correo,
     string? Direccion,

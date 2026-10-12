@@ -3,7 +3,10 @@
 <div class="app-shell">
     <aside class="app-sidebar @(sidebarOpen ? "is-open" : "")">
         <div class="sidebar-brand">
-            <div class="brand-mark">+</div>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                <path d="M9.5 10.5c0-.8.7-1.5 1.5-1.5h2c.8 0 1.5.7 1.5 1.5v1.5c0 .8-.7 1.5-1.5 1.5h-2c-.8 0-1.5-.7-1.5-1.5v-1.5z"></path>
+            </svg>
             <div>
                 <strong>Odentra</strong>
                 <span>Sistema de gestión</span>
@@ -14,7 +17,7 @@
             <span class="nav-section">General</span>
             <NavLink href="/" Match="NavLinkMatch.All" class="nav-item">
                 <span class="nav-icon">▦</span>
-                Dashboard
+                Inicio
             </NavLink>
 
             @if (HasPermission("Pacientes.Ver") || HasPermission("Odontologos.Ver") || HasPermission("Citas.Ver"))
@@ -30,7 +33,7 @@
                 }
                 @if (HasPermission("Citas.Ver"))
                 {
-                 <NavLink href="/cita" class="nav-item"><span class="nav-icon">□</span>Citas</NavLink>
+                    <NavLink href="/cita" class="nav-item"><span class="nav-icon">□</span>Citas</NavLink>
                 }
             }
 
@@ -80,8 +83,23 @@
                 @if (HasPermission("Reportes.Ver"))
                 {
                     <NavLink href="/reportes" class="nav-item"><span class="nav-icon">▥</span>Reportes</NavLink>
+
                 }
             }
+
+            @* --- SECCIÓN DE CONFIGURACIÓN  --- *@
+            <span class="nav-section">Información</span>
+            <NavLink href="/acercaDe" class="nav-item">
+                <span class="nav-icon">⌸</span>
+                Acerca De
+            </NavLink>
+
+            @* --- SECCIÓN DE AYUDA --- *@
+            <span class="nav-section"> Ayuda </span>
+            <NavLink  href="/centro-ayuda" class="nav-item">
+                    <span class="nav-icon">❓</span>
+                    Centro de Ayuda
+                </NavLink>
         </nav>
 
         <div class="sidebar-user">
@@ -107,8 +125,8 @@
 </div>
 
 <div id="blazor-error-ui">
-    An unhandled error has occurred.
-    <a href="" class="reload">Reload</a>
+    Se ha producido un error no controlado.
+    <a href="" class="reload">Recargar</a>
     <a class="dismiss">🗙</a>
 </div>
 
@@ -118,11 +136,12 @@
     private string UserRole = "Sin rol";
     private string UserInitials = "US";
     private ClaimsPrincipal CurrentUser = new();
+
     private string CurrentTitle => Navigation.Uri.ToLowerInvariant() switch
     {
         var uri when uri.Contains("pacientes") => "Pacientes",
         var uri when uri.Contains("odontologos") => "Odontólogos",
-        var uri when uri.Contains("citas") => "Citas",
+        var uri when uri.Contains("cita") => "Citas", // Se ajustó "citas" por "cita" para coincidir con tus rutas
         var uri when uri.Contains("historia") => "Historia clínica",
         var uri when uri.Contains("odontograma") => "Odontograma",
         var uri when uri.Contains("tratamientos") => "Tratamientos",
@@ -131,6 +150,7 @@
         var uri when uri.Contains("roles") => "Roles y permisos",
         var uri when uri.Contains("auditoria") => "Auditoría",
         var uri when uri.Contains("reportes") => "Reportes",
+        var uri when uri.Contains("empresa") => "La Empresa", // Mapeo de título para la nueva página
         _ => "Dashboard"
     };
 

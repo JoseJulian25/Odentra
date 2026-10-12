@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using Odentra.Data.Entities;
 using Odentra.Services.Odontologos.DTOs;
 

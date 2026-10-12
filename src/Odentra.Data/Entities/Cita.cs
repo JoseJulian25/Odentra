@@ -11,10 +11,22 @@ public class Cita
     public string? Motivo { get; set; }
     public string? Observaciones { get; set; }
     public EstadoCita Estado { get; set; } = EstadoCita.Programada;
-    public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
+
+    // Se inicializa automáticamente con la hora exacta de República Dominicana
+    public DateTime FechaCreacion { get; set; } = ObtenerHoraLocal();
     public DateTime? FechaModificacion { get; set; }
 
     public Paciente Paciente { get; set; } = null!;
     public Odontologo Odontologo { get; set; } = null!;
     public ConsultaClinica? ConsultaClinica { get; set; }
+
+    private static DateTime ObtenerHoraLocal()
+    {
+        var timeZoneId = OperatingSystem.IsWindows()
+            ? "SA Western Standard Time"
+            : "America/Santo_Domingo";
+
+        var zone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+        return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zone);
+    }
 }

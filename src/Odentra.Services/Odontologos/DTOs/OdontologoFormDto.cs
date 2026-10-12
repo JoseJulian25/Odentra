@@ -1,5 +1,5 @@
-using System.ComponentModel.DataAnnotations;
 using Odentra.Data.Entities;
+using System.ComponentModel.DataAnnotations;
 
 namespace Odentra.Services.Odontologos.DTOs;
 
@@ -20,7 +20,7 @@ public sealed class OdontologoFormDto
     [StringLength(50, ErrorMessage = "El número de licencia no puede superar los 50 caracteres.")]
     public string NumeroLicencia { get; set; } = string.Empty;
 
-    [StringLength(100, ErrorMessage = "La especialidad no puede superar los 100 caracteres.")]
+    [Required(ErrorMessage = "La especialidad es obligatoria.")]
     public string? Especialidad { get; set; }
 
     [StringLength(30)]

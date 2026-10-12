@@ -11,7 +11,7 @@
 <div class="patients-page">
     <div class="page-header">
         <div>
-            <h1>Pacientes</h1>
+            <h1>Pacientes 👤</h1>
             <p>Administra la información general de los pacientes de la clínica.</p>
         </div>
         <AuthorizeView Policy="Pacientes.Crear">
@@ -55,7 +55,7 @@
         }
         else
         {
-            <div class="table-scroll">
+            <div class="activity-scroll" style="max-height: 600px; overflow-y: auto;">
                 <table class="patients-table">
                     <thead>
                         <tr><th>Nombre completo</th><th>Identificación</th><th>Teléfono</th><th>Correo</th><th>Registro</th><th>Estado</th><th><span class="visually-hidden">Acciones</span></th></tr>

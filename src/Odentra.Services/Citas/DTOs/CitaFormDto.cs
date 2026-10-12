@@ -1,5 +1,5 @@
-using System.ComponentModel.DataAnnotations;
 using Odentra.Data.Entities;
+using System.ComponentModel.DataAnnotations;
 
 namespace Odentra.Services.Citas.DTOs;
 
@@ -24,9 +24,6 @@ public sealed class CitaFormDto
 
     [StringLength(500, ErrorMessage = "El motivo no puede superar los 500 caracteres.")]
     public string? Motivo { get; set; }
-
-    [StringLength(1000, ErrorMessage = "Las observaciones no pueden superar los 1000 caracteres.")]
-    public string? Observaciones { get; set; }
 
     public EstadoCita Estado { get; set; } = EstadoCita.Programada;
 }
