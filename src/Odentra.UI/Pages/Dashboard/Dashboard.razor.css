@@ -17,3 +17,47 @@
 .activity-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid #f1f5f9; color: #475569; font-size: 12px; }.activity-row small { margin-left: auto; color: #94a3b8; font-size: 10px; white-space: nowrap; }.activity-icon { width: 20px; height: 20px; display: grid; flex: 0 0 20px; place-items: center; border-radius: 50%; font-size: 11px; font-weight: 700; }.activity-icon.success { background: #dcfce7; color: #16a34a; }.activity-icon.info { background: #dbeafe; color: #2563eb; }.activity-icon.payment { background: #ede9fe; color: #7c3aed; }
 @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2, 1fr); }.dashboard-grid { grid-template-columns: 1fr; }.app-content { padding: 14px; } }
 @media (max-width: 560px) { .stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }.stat-card { padding: 12px; }.stat-card strong { font-size: 19px; }.activity-row { align-items: flex-start; flex-wrap: wrap; }.activity-row small { width: 100%; margin-left: 30px; } }
+.dot.orange {
+    background-color: #f97316; /* Naranja */
+}
+.dot.teal {
+    background-color: #14b8a6; /* Turquesa */
+}
+.dot.fuchsia {
+    background-color: #d946ef; /* Fucsia */
+}
+
+/* Limita la altura del contenedor y activa el scroll vertical */
+.appointments-panel .table-scroll {
+    max-height: 320px; /* Ajusta este valor si deseas que sea más alto/corto */
+    overflow-y: auto; /* Habilita la barra de desplazamiento cuando las citas sobrepasan la altura */
+    padding-right: 4px; /* Evita que la tabla tape la barra de scroll */
+}
+
+/* Mantiene los encabezados de la tabla fijos mientras deslizas las citas */
+.appointments-panel .data-table thead {
+    position: sticky;
+    top: 0;
+    background-color: #ffffff; /* Evita transparencia al deslizar el contenido */
+    z-index: 2;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); /* Sombra sutil opcional bajo el encabezado */
+}
+
+/* Personalización del diseño de la barra de desplazamiento */
+.appointments-panel .table-scroll::-webkit-scrollbar {
+    width: 6px;
+}
+
+.appointments-panel .table-scroll::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+.appointments-panel .table-scroll::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+    .appointments-panel .table-scroll::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }

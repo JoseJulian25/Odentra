@@ -12,13 +12,13 @@
 @inject IOdontologoService OdontologoService
 @inject NavigationManager Navigation
 
-<PageTitle>@(IsEditing ? "Editar cita" : "Agendar cita") · Odentra</PageTitle>
+<PageTitle>@(IsEditing ? "Editar cita 📅" : "Agendar cita 📅") · Odentra</PageTitle>
 
 <div class="appointment-form-page">
     <div class="page-header">
         <div>
             <a class="back-link" href="/cita">← Citas</a>
-            <h1>@(IsEditing ? "Editar cita" : "Agendar cita")</h1>
+            <h1>@(IsEditing ? "Editar cita 📅" : "Agendar cita 📅")</h1>
             <p>@(IsEditing ? "Actualiza los detalles de la cita." : "Programa una nueva cita para el paciente.")</p>
         </div>
     </div>
@@ -43,7 +43,7 @@
 
             <section class="form-panel">
                 <div class="section-heading">
-                    <h2>Participantes</h2>
+                    <h2>Participantes 👤</h2>
                     <span>Campos obligatorios marcados en el formulario</span>
                 </div>
                 <div class="form-grid">
