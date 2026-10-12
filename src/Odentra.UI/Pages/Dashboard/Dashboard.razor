@@ -57,7 +57,7 @@
                 <a href="/cita">Ver todas</a>
             </div>
 
-            <div class="table-scroll">
+            <div class="table-scroll" style="max-height: 250px; overflow-y: auto;">
                 @if (loading)
                 {
                     <div style="padding: 20px; text-align: center;">Cargando citas de hoy...</div>
@@ -69,7 +69,7 @@
                 else
                 {
                     <table class="data-table">
-                        <thead>
+                        <thead style="position: sticky; top: 0; background-color: #ffffff; z-index: 2;">
                             <tr>
                                 <th>Hora</th>
                                 <th>Paciente</th>
@@ -107,6 +107,8 @@
 
             <div class="summary-list">
                 <div>
+                </div>
+                <div>
                     <span><i class="dot blue"></i>Programadas</span>
                     <strong>@citasProgramadas</strong>
                 </div>
@@ -115,12 +117,18 @@
                     <strong>@citasConfirmadas</strong>
                 </div>
                 <div>
-                    <span><i class="dot gray"></i>Atendidas hoy</span>
+                    <span><i class="dot fuchsia"></i>Atendidas hoy</span>
                     <strong>@citasAtendidas</strong>
                 </div>
                 <div>
                     <span><i class="dot red"></i>Canceladas hoy</span>
                     <strong>@citasCanceladas</strong>
+                </div>
+                <div>
+                    <span><i class="dot gray"></i>No asistio</span>
+                    <strong>@citasNoAsistio</strong>
+                </div>
+                <div>
                 </div>
             </div>
 
@@ -137,6 +145,7 @@
             <h2>Actividad reciente</h2>
         </div>
 
+        <div class="activity-scroll" style="max-height: 270px; overflow-y: auto;">
         @if (loading)
         {
             <div style="padding: 20px; text-align: center; color: #64748b; font-size: 12px;">
@@ -160,6 +169,7 @@
                 </div>
             }
         }
+        </div>
     </section>
 </div>
 
@@ -174,6 +184,7 @@
     private int citasConfirmadas = 0;
     private int citasAtendidas = 0;
     private int citasCanceladas = 0;
+    private int citasNoAsistio = 0;
     private int pacientesActivos = 0;
     private int pacientesNuevosSemana = 0;
     private int odontologosActivos = 0;
@@ -210,6 +221,7 @@
             citasConfirmadas = citasHoy.Count(c => c.Estado == EstadoCita.Confirmada);
             citasAtendidas = citasHoy.Count(c => c.Estado == EstadoCita.Atendida);
             citasCanceladas = citasHoy.Count(c => c.Estado == EstadoCita.Cancelada);
+            citasNoAsistio = citasHoy.Count(c => c.Estado == EstadoCita.NoAsistio);
 
             // 2. CARGAR PACIENTES Y ODONTÓLOGOS
             var pacientes = (await PacienteService.SearchAsync(null, null)).ToList();
@@ -242,7 +254,7 @@
         var lista = new List<ActividadItem>();
 
         // A. ACTIVIDAD DE PACIENTES (Nuevos registros y cambios de perfil)
-        foreach (var p in pacientes.OrderByDescending(p => p.FechaRegistro).Take(5))
+        foreach (var p in pacientes.OrderByDescending(p => p.FechaRegistro))
         {
             lista.Add(new ActividadItem
             {
@@ -361,7 +373,7 @@
         }
 
         // Se ordena de la más reciente a la más antigua y se presentan las primeras 6
-        actividadesRecientes = lista.OrderByDescending(a => a.FechaHora).Take(6).ToList();
+        actividadesRecientes = lista.OrderByDescending(a => a.FechaHora).ToList();
     }
 
     private static string ObtenerTiempoRelativo(DateTime fecha)
