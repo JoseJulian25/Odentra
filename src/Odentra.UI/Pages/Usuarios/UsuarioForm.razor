@@ -69,6 +69,35 @@
                 </div>
             </section>
 
+            @if (IsDentistRole)
+            {
+                <section class="professional-summary">
+                    <div>
+                        <span class="section-kicker">03</span>
+                        <div><strong>Perfil profesional</strong><small>@(model.PerfilOdontologo is null ? "Completa los datos del odontólogo" : $"Licencia: {model.PerfilOdontologo.NumeroLicencia}")</small></div>
+                    </div>
+                    <button type="button" class="secondary-action" @onclick="OpenDentistModal">@(model.PerfilOdontologo is null ? "Completar perfil" : "Editar perfil")</button>
+                </section>
+            }
+
+            @if (showDentistModal && IsDentistRole)
+            {
+                <div class="modal-backdrop" role="presentation" @onclick="CloseDentistModal">
+                    <section class="professional-modal" role="dialog" aria-modal="true" aria-labelledby="professional-title" @onclick:stopPropagation="true">
+                        <div class="modal-header"><div><span class="page-eyebrow">Perfil profesional</span><h2 id="professional-title">Datos del odontólogo</h2><p>Estos datos se asociarán a la cuenta y a sus registros clínicos.</p></div><button type="button" class="modal-close" @onclick="CloseDentistModal" aria-label="Cerrar">×</button></div>
+                        <div class="modal-grid">
+                            <div class="field"><label for="dentist-first-name">Nombres</label><InputText id="dentist-first-name" @bind-Value="model.PerfilOdontologo!.Nombres" placeholder="Nombres profesionales" /></div>
+                            <div class="field"><label for="dentist-last-name">Apellidos</label><InputText id="dentist-last-name" @bind-Value="model.PerfilOdontologo!.Apellidos" placeholder="Apellidos profesionales" /></div>
+                            <div class="field"><label for="dentist-license">Número de licencia</label><InputText id="dentist-license" @bind-Value="model.PerfilOdontologo!.NumeroLicencia" placeholder="Licencia o colegiatura" /></div>
+                            <div class="field"><label for="dentist-specialty">Especialidad</label><InputText id="dentist-specialty" @bind-Value="model.PerfilOdontologo!.Especialidad" placeholder="Ej. Odontología general" /></div>
+                            <div class="field"><label for="dentist-phone">Teléfono</label><InputText id="dentist-phone" @bind-Value="model.PerfilOdontologo!.Telefono" /></div>
+                            <div class="field"><label for="dentist-email">Correo profesional</label><InputText id="dentist-email" type="email" @bind-Value="model.PerfilOdontologo!.Correo" /></div>
+                        </div>
+                        <div class="modal-actions"><button type="button" class="cancel-action" @onclick="CloseDentistModal">Cancelar</button><button type="button" class="primary-action" @onclick="CloseDentistModal">Listo</button></div>
+                    </section>
+                </div>
+            }
+
             <section class="form-panel">
                 <div class="section-heading">
                     <div><span class="section-kicker">02</span><h2>Roles y permisos base</h2></div>
@@ -105,6 +134,7 @@
     private bool saving;
     private bool notFound;
     private string? errorMessage;
+    private bool showDentistModal;
 
     private bool IsEditing => !string.IsNullOrWhiteSpace(Id);
 
@@ -113,6 +143,8 @@
         get => model.Estado == EstadoRegistro.Activo;
         set => model.Estado = value ? EstadoRegistro.Activo : EstadoRegistro.Inactivo;
     }
+
+    private bool IsDentistRole => model.Roles.Contains("Odontólogo", StringComparer.Ordinal);
 
     protected override async Task OnParametersSetAsync()
     {
@@ -140,13 +172,29 @@
         if (selected && !model.Roles.Contains(role))
         {
             model.Roles.Add(role);
+            if (role == "Odontólogo")
+            {
+                model.PerfilOdontologo ??= new();
+                model.PerfilOdontologo.Nombres = model.Nombre;
+                showDentistModal = true;
+            }
         }
 
         if (!selected)
         {
             model.Roles.Remove(role);
+            if (role == "Odontólogo") showDentistModal = false;
         }
     }
+
+    private void OpenDentistModal()
+    {
+        model.PerfilOdontologo ??= new();
+        model.PerfilOdontologo.Nombres = string.IsNullOrWhiteSpace(model.PerfilOdontologo.Nombres) ? model.Nombre : model.PerfilOdontologo.Nombres;
+        showDentistModal = true;
+    }
+
+    private void CloseDentistModal() => showDentistModal = false;
 
     private async Task SaveAsync()
     {
@@ -163,6 +211,14 @@
         if (model.Roles.Count == 0)
         {
             errorMessage = "Selecciona al menos un rol.";
+            saving = false;
+            return;
+        }
+
+        if (IsDentistRole && (model.PerfilOdontologo is null || string.IsNullOrWhiteSpace(model.PerfilOdontologo.Nombres) || string.IsNullOrWhiteSpace(model.PerfilOdontologo.Apellidos) || string.IsNullOrWhiteSpace(model.PerfilOdontologo.NumeroLicencia)))
+        {
+            errorMessage = "Completa el perfil profesional del odontólogo antes de guardar.";
+            showDentistModal = true;
             saving = false;
             return;
         }
