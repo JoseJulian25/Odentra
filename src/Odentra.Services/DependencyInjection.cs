@@ -76,13 +76,10 @@ public static class DependencyInjection
         services.AddScoped<IOdontologoRepository, OdontologoRepository>();
         services.AddScoped<IOdontologoService, OdontologoService>();
         services.AddScoped<IUsuarioService, UsuarioService>();
-<<<<<<< HEAD
         services.AddScoped<IOdontogramaRepository, OdontogramaRepository>();
         services.AddScoped<IOdontogramaService, OdontogramaService>();
-        //services.AddScoped<IDashboardService, DashboardService>();
-=======
         services.AddScoped<IDashboardService, DashboardService>();
->>>>>>> main
+        services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<ICitaRepository, CitaRepository>();
         services.AddScoped<ICitaService, CitaService>();
 
