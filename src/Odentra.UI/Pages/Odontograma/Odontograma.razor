@@ -1,0 +1,341 @@
+@page "/odontograma"
+@attribute [Authorize(Policy = "Odontograma.Ver")]
+@using System.Security.Claims
+@using Odentra.Data.Entities
+@using Odentra.Services.Odontograma
+@using Odentra.Services.Odontograma.DTOs
+@using Odentra.Services.Autorizacion
+@inject IOdontogramaService OdontogramaService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Odontograma · Odentra</PageTitle>
+
+<div class="odontogram-page">
+    <header class="odontogram-header">
+        <div>
+            <span class="page-eyebrow">Clínica</span>
+            <h1>Odontograma</h1>
+            <p>Visualiza y actualiza el estado dental de cada paciente.</p>
+        </div>
+        <div class="patient-selector">
+            <label for="patient-select">Paciente</label>
+            <select id="patient-select" value="@selectedPatientId" @onchange="HandlePatientChanged">
+                @foreach (var patient in patients)
+                {
+                    <option value="@patient.Id">@patient.NombreCompleto</option>
+                }
+            </select>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="feedback error">@errorMessage</div>
+    }
+    @if (!string.IsNullOrWhiteSpace(successMessage))
+    {
+        <div class="feedback success">@successMessage</div>
+    }
+
+    @if (loading)
+    {
+        <div class="odontogram-state">Cargando odontograma...</div>
+    }
+    else if (pieces.Count == 0)
+    {
+        <div class="odontogram-state">
+            <strong>No hay piezas dentales configuradas.</strong>
+            <span>Revisa el catálogo FDI de la base de datos.</span>
+        </div>
+    }
+    else
+    {
+        <div class="odontogram-layout">
+            <section class="odontogram-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h2>Mapa dental</h2>
+                        <span>Numeración FDI</span>
+                    </div>
+                    <div class="legend">
+                        <span><i class="dot state-sano"></i>Sano</span>
+                        <span><i class="dot state-caries"></i>Caries</span>
+                        <span><i class="dot state-restauracion"></i>Restauración</span>
+                        <span><i class="dot state-tratamientorealizado"></i>Tratado</span>
+                        <span><i class="dot state-ausente"></i>Ausente</span>
+                    </div>
+                </div>
+
+                @{
+                    var upperList = UpperPieces.ToList();
+                    var lowerList = LowerPieces.ToList();
+                }
+
+                <div class="mouth">
+                    <div class="mouth-glow"></div>
+
+                    <div class="arch-label">Arcada superior</div>
+
+                    <div class="arch arch-upper">
+                        @for (var i = 0; i < upperList.Count; i++)
+                        {
+                            var piece = upperList[i];
+                            var style = GetArchStyle(i, upperList.Count, isUpper: true);
+                            <button type="button"
+                                    class="tooth @GetStateClass(piece.Estado) @(selectedPiece?.Id == piece.Id ? "is-selected" : "")"
+                                    style="@style"
+                                    @onclick="() => SelectPiece(piece)"
+                                    title="Pieza @piece.NumeroFDI · @GetStateLabel(piece.Estado)">
+                                <span class="tooth-inner">
+                                    <span class="tooth-number">@piece.NumeroFDI</span>
+                                    <span class="tooth-mark"></span>
+                                </span>
+                            </button>
+                        }
+                    </div>
+
+                    <div class="mouth-centerline">
+                        <span></span>
+                        <small>Línea media</small>
+                        <span></span>
+                    </div>
+
+                    <div class="arch arch-lower">
+                        @for (var i = 0; i < lowerList.Count; i++)
+                        {
+                            var piece = lowerList[i];
+                            var style = GetArchStyle(i, lowerList.Count, isUpper: false);
+                            <button type="button"
+                                    class="tooth @GetStateClass(piece.Estado) @(selectedPiece?.Id == piece.Id ? "is-selected" : "")"
+                                    style="@style"
+                                    @onclick="() => SelectPiece(piece)"
+                                    title="Pieza @piece.NumeroFDI · @GetStateLabel(piece.Estado)">
+                                <span class="tooth-inner">
+                                    <span class="tooth-number">@piece.NumeroFDI</span>
+                                    <span class="tooth-mark"></span>
+                                </span>
+                            </button>
+                        }
+                    </div>
+
+                    <div class="arch-label lower-label">Arcada inferior</div>
+                </div>
+            </section>
+
+            <section class="piece-panel">
+                @if (selectedPiece is null)
+                {
+                    <div class="piece-empty">
+                        <span class="piece-empty-icon">🦷</span>
+                        <strong>Selecciona una pieza</strong>
+                        <span>Consulta o edita su estado y observaciones.</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="piece-heading">
+                        <div class="piece-heading-left">
+                            <span class="piece-number @GetStateClass(selectedPiece.Estado)">@selectedPiece.NumeroFDI</span>
+                            <div>
+                                <h2>@selectedPiece.Nombre</h2>
+                                <span>Pieza dental seleccionada</span>
+                            </div>
+                        </div>
+                        <span class="state-badge @GetStateClass(selectedPiece.Estado)">
+                            @GetStateLabel(selectedPiece.Estado)
+                        </span>
+                    </div>
+
+                    <div class="piece-content">
+                        <div class="field">
+                            <label for="tooth-state">Estado actual</label>
+                            <InputSelect id="tooth-state" @bind-Value="selectedPiece.Estado" disabled="@(!canEdit)">
+                                @foreach (var state in Enum.GetValues<EstadoOdontograma>())
+                                {
+                                    <option value="@state">@GetStateLabel(state)</option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="field">
+                            <label for="tooth-notes">Observaciones</label>
+                            <InputTextArea id="tooth-notes"
+                                           @bind-Value="selectedPiece.Observaciones"
+                                           disabled="@(!canEdit)"
+                                           placeholder="Describe hallazgos o cambios relevantes..." />
+                        </div>
+
+                        @if (selectedPiece.FechaModificacion.HasValue)
+                        {
+                            <div class="last-change">
+                                <span>Última modificación</span>
+                                <strong>@selectedPiece.FechaModificacion.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</strong>
+                                <small>@(selectedPiece.Odontologo ?? "Odontólogo no disponible")</small>
+                            </div>
+                        }
+
+                        @if (canEdit)
+                        {
+                            <button class="save-action" @onclick="SaveSelectedPieceAsync" disabled="@saving">
+                                @(saving ? "Guardando..." : "Guardar cambios")
+                            </button>
+                        }
+                        else
+                        {
+                            <div class="read-only-note">
+                                Tu rol tiene acceso de consulta. Solo un odontólogo autorizado puede modificar el odontograma.
+                            </div>
+                        }
+                    </div>
+                }
+            </section>
+        </div>
+    }
+</div>
+
+@code {
+    private List<OdontogramaPacienteDto> patients = [];
+    private List<OdontogramaPiezaDto> pieces = [];
+    private OdontogramaPiezaDto? selectedPiece;
+    private int selectedPatientId;
+    private bool loading = true;
+    private bool saving;
+    private bool canEdit;
+    private string? userId;
+    private string? errorMessage;
+    private string? successMessage;
+
+    private IEnumerable<OdontogramaPiezaDto> UpperPieces =>
+        pieces.Where(p => p.NumeroFDI.StartsWith('1') || p.NumeroFDI.StartsWith('2'))
+              .OrderBy(p => GetFdiVisualOrder(p.NumeroFDI));
+
+    private IEnumerable<OdontogramaPiezaDto> LowerPieces =>
+        pieces.Where(p => p.NumeroFDI.StartsWith('3') || p.NumeroFDI.StartsWith('4'))
+              .OrderBy(p => GetFdiVisualOrder(p.NumeroFDI));
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authenticationState.User;
+            canEdit = user.HasClaim(PermissionCatalog.ClaimType, "Odontograma.Editar");
+            userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            patients = (await OdontogramaService.GetActivePatientsAsync()).ToList();
+            if (patients.Count > 0)
+            {
+                selectedPatientId = patients[0].Id;
+                await LoadPiecesAsync();
+            }
+        }
+        catch (Exception)
+        {
+            errorMessage = "No fue posible cargar el odontograma.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task HandlePatientChanged(ChangeEventArgs args)
+    {
+        if (!int.TryParse(args.Value?.ToString(), out var patientId)) return;
+        selectedPatientId = patientId;
+        await LoadPiecesAsync();
+    }
+
+    private async Task LoadPiecesAsync()
+    {
+        pieces = (await OdontogramaService.GetByPatientAsync(selectedPatientId)).ToList();
+        selectedPiece = null;
+        successMessage = null;
+    }
+
+    private void SelectPiece(OdontogramaPiezaDto piece)
+    {
+        selectedPiece = piece;
+        successMessage = null;
+    }
+
+    private async Task SaveSelectedPieceAsync()
+    {
+        if (selectedPiece is null || string.IsNullOrWhiteSpace(userId)) return;
+        saving = true;
+        errorMessage = null;
+        successMessage = null;
+        try
+        {
+            await OdontogramaService.SaveAsync(selectedPatientId, selectedPiece.Id, selectedPiece.Estado, selectedPiece.Observaciones, userId);
+            await LoadPiecesAsync();
+            successMessage = "Los cambios del odontograma fueron guardados.";
+        }
+        catch (InvalidOperationException exception)
+        {
+            errorMessage = exception.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    // Orden visual FDI: 18..11 → 21..28 (arriba)  48..41 → 31..38 (abajo)
+    private static int GetFdiVisualOrder(string fdi)
+    {
+        if (!int.TryParse(fdi, out var value)) return int.MaxValue;
+        var quadrant = value / 10;
+        var position = value % 10;
+        return quadrant switch
+        {
+            1 => 8 - position,
+            2 => 7 + position,
+            4 => 8 - position,
+            3 => 7 + position,
+            _ => int.MaxValue
+        };
+    }
+
+    // --- Cálculo del arco con forma de boca ---
+    // Curva 1 - cos(...) para silueta de arco.
+    // Rotación radial: cada diente "abre" desde el centro de la boca.
+    private static string GetArchStyle(int index, int total, bool isUpper)
+    {
+        if (total <= 1)
+            return "--ty: 0px; --rot: 0deg; --counter-rot: 0deg;";
+
+        var center = (total - 1) / 2.0;
+        var offset = index - center;
+        var maxOffset = center == 0 ? 1 : center;
+        var normalized = offset / maxOffset; // -1 .. 1
+
+        // Profundidad del arco: qué tan marcada es la curva de la boca.
+        const double archDepth = 72.0;
+
+        // Curva suave tipo arco.
+        var y = (1 - Math.Cos(normalized * Math.PI / 2)) * archDepth;
+        // Superior sube en los extremos, inferior baja en los extremos.
+        if (isUpper) y = -y;
+
+        // Rotación radial: los dientes "abren" desde el centro de la boca.
+        // Superior e inferior giran en sentidos espejo para simetría con la línea media.
+        const double maxRotation = 10.0;
+        var rotation = normalized * maxRotation;
+        if (!isUpper) rotation = -rotation;
+
+        return string.Create(
+            System.Globalization.CultureInfo.InvariantCulture,
+            $"--ty: {y:F1}px; --rot: {rotation:F2}deg; --counter-rot: {-rotation:F2}deg;");
+    }
+
+    // --- Clases y etiquetas por estado ---
+    private static string GetStateClass(EstadoOdontograma state) =>
+        $"state-{state.ToString().ToLowerInvariant()}";
+
+    private static string GetStateLabel(EstadoOdontograma state) => state switch
+    {
+        EstadoOdontograma.Restauracion => "Restauración",
+        EstadoOdontograma.TratamientoRealizado => "Tratamiento realizado",
+        _ => state.ToString()
+    };
+}

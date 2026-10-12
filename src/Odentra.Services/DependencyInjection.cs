@@ -10,6 +10,7 @@ using Odentra.Services.Odontologos;
 using Odentra.Services.Usuarios;
 using Odentra.Services.Autenticacion;
 using Odentra.Services.Autorizacion;
+using Odentra.Services.Odontograma;
 //using Odentra.Services.Dashboard;
 using Odentra.Services.Citas;
 
@@ -74,6 +75,8 @@ public static class DependencyInjection
         services.AddScoped<IOdontologoRepository, OdontologoRepository>();
         services.AddScoped<IOdontologoService, OdontologoService>();
         services.AddScoped<IUsuarioService, UsuarioService>();
+        services.AddScoped<IOdontogramaRepository, OdontogramaRepository>();
+        services.AddScoped<IOdontogramaService, OdontogramaService>();
         //services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<ICitaRepository, CitaRepository>();
         services.AddScoped<ICitaService, CitaService>();
