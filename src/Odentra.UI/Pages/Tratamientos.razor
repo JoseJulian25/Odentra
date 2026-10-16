@@ -1,0 +1,1005 @@
+﻿@page "/tratamientos"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using Odentra.Data
+@using Odentra.Data.Entities
+@inject ApplicationDbContext DbContext
+
+<PageTitle>Tratamientos - Odentra</PageTitle>
+
+<div class="tratamientos-container">
+    <!-- Encabezado con Título y Botón Principal -->
+    <div class="top-header">
+        <h1 class="page-title">Tratamientos</h1>
+        @if (pestañaActiva == "catalogo")
+        {
+            <button class="btn-primary" @onclick="AbrirModalNuevoCatalogo">
+                <span class="icon-plus">+</span> Nuevo tratamiento
+            </button>
+        }
+        else
+        {
+            <button class="btn-primary" @onclick="AbrirModalRegistrarRealizado">
+                <span class="icon-plus">+</span> Registrar tratamiento
+            </button>
+        }
+    </div>
+
+    <!-- Pestañas Horizontales: Catálogo y Realizados -->
+    <div class="tabs-container">
+        <button class="tab-button @(pestañaActiva == "catalogo" ? "active" : "")"
+                @onclick='() => CambiarPestaña("catalogo")'>
+            Catálogo
+        </button>
+        <button class="tab-button @(pestañaActiva == "realizados" ? "active" : "")"
+                @onclick='() => CambiarPestaña("realizados")'>
+            Realizados
+        </button>
+    </div>
+
+    <!-- Barra de Filtros (Buscador y Estado) -->
+    <div class="filter-card">
+        <div class="search-box">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="11" cy="11" r="8" stroke-width="2" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" stroke-width="2" />
+            </svg>
+            <input type="text"
+                   @bind="busqueda"
+                   @bind:event="oninput"
+                   @bind:after="FiltrarDatos"
+                   placeholder="@(pestañaActiva == "catalogo" ? "Buscar tratamiento..." : "Buscar paciente o tratamiento...")"
+                   class="search-input" />
+        </div>
+
+        <div class="status-select-container">
+            <select @bind="filtroEstado" @bind:after="FiltrarDatos" class="status-select">
+                <option value="Todos">Todos</option>
+                @if (pestañaActiva == "catalogo")
+                {
+                    <option value="Activo">Activo</option>
+                    <option value="Inactivo">Inactivo</option>
+                }
+                else
+                {
+                    <option value="Completado">Completado</option>
+                    <option value="En proceso">En proceso</option>
+                    <option value="Pendiente">Pendiente</option>
+                    <option value="Cancelado">Cancelado</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    <!-- CONTENIDO PESTAÑA 1: CATÁLOGO -->
+    @if (pestañaActiva == "catalogo")
+    {
+        <div class="table-card">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">TRATAMIENTO</th>
+                        <th style="width: 40%;">DESCRIPCIÓN</th>
+                        <th style="width: 15%;">PRECIO BASE</th>
+                        <th style="width: 10%;">ESTADO</th>
+                        <th style="width: 10%; text-align: center;">ACCIONES</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (cargando)
+                    {
+                        <tr>
+                            <td colspan="5" class="empty-state">Cargando catálogo...</td>
+                        </tr>
+                    }
+                    else if (!tratamientosFiltrados.Any())
+                    {
+                        <tr>
+                            <td colspan="5" class="empty-state">No hay tratamientos para mostrar.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var item in tratamientosFiltrados)
+                        {
+                            <tr>
+                                <td class="col-main">@item.Nombre</td>
+                                <td class="col-desc">@(string.IsNullOrEmpty(item.Descripcion) ? "—" : item.Descripcion)</td>
+                                <td class="col-price">RD$@item.PrecioBase.ToString("N2")</td>
+                                <td>
+                                    @if (item.Estado == EstadoRegistro.Activo)
+                                    {
+                                        <span class="status-active">Activo</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-inactive">Inactivo</span>
+                                    }
+                                </td>
+                                <td style="text-align: center;">
+                                    <button class="btn-action" title="Editar" @onclick="() => EditarTratamiento(item)">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="action-icon">
+                                            <path d="M12 20h9" />
+                                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                                        </svg>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+            <div class="table-footer">
+                <span>@tratamientosFiltrados.Count registros</span>
+                <span class="pagination-indicator">1</span>
+            </div>
+        </div>
+    }
+
+    <!-- CONTENIDO PESTAÑA 2: REALIZADOS -->
+    @if (pestañaActiva == "realizados")
+    {
+        <div class="table-card">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th style="width: 18%;">PACIENTE</th>
+                        <th style="width: 20%;">TRATAMIENTO</th>
+                        <th style="width: 16%;">ODONTÓLOGO</th>
+                        <th style="width: 12%;">FECHA</th>
+                        <th style="width: 10%;">PIEZA</th>
+                        <th style="width: 12%;">PRECIO</th>
+                        <th style="width: 8%;">ESTADO</th>
+                        <th style="width: 4%; text-align: center;">ACCIONES</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (cargando)
+                    {
+                        <tr>
+                            <td colspan="8" class="empty-state">Cargando tratamientos realizados...</td>
+                        </tr>
+                    }
+                    else if (!realizadosFiltrados.Any())
+                    {
+                        <tr>
+                            <td colspan="8" class="empty-state">No hay tratamientos realizados registrados.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var r in realizadosFiltrados)
+                        {
+                            <tr>
+                                <td class="col-main">@(r.Paciente != null ? $"{r.Paciente.Nombres} {r.Paciente.Apellidos}" : $"Paciente #{r.PacienteId}")</td>
+                                <td>@(r.Tratamiento != null ? r.Tratamiento.Nombre : $"Tratamiento #{r.TratamientoId}")</td>
+                                <td class="col-desc">@(r.Odontologo != null ? $"{r.Odontologo.Nombres} {r.Odontologo.Apellidos}" : $"Dr. #{r.OdontologoId}")</td>
+                                <td class="col-date">@r.Fecha.ToString("yyyy-MM-dd")</td>
+                                <td class="col-tooth">@(r.PiezaDental != null ? r.PiezaDental.Nombre : (r.PiezaDentalId.HasValue ? $"Pieza #{r.PiezaDentalId}" : "--"))</td>
+                                <td class="col-price">RD$@r.Precio.ToString("N2")</td>
+                                <td>
+                                    @switch (r.Estado)
+                                    {
+                                        case EstadoTratamiento.Completado:
+                                            <span class="badge badge-completado">Completado</span>
+                                            break;
+                                        case EstadoTratamiento.EnProceso:
+                                            <span class="badge badge-proceso">En proceso</span>
+                                            break;
+                                        case EstadoTratamiento.Pendiente:
+                                            <span class="badge badge-pendiente">Pendiente</span>
+                                            break;
+                                        case EstadoTratamiento.Cancelado:
+                                            <span class="badge badge-cancelado">Cancelado</span>
+                                            break;
+                                    }
+                                </td>
+                                <td style="text-align: center;">
+                                    <button class="btn-action" title="Editar">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="action-icon">
+                                            <path d="M12 20h9" />
+                                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                                        </svg>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+            <div class="table-footer">
+                <span>@realizadosFiltrados.Count registros</span>
+                <span class="pagination-indicator">1</span>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- MODAL: NUEVO TRATAMIENTO (CATÁLOGO) -->
+@if (mostrarModalCatalogo)
+{
+    <div class="modal-backdrop">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 class="modal-title">@(tratamientoEditando.Id == 0 ? "Nuevo tratamiento" : "Editar tratamiento")</h3>
+                <button class="modal-close-btn" @onclick="CerrarModales">&times;</button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorModal))
+            {
+                <div class="alert-error">@errorModal</div>
+            }
+
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Nombre del tratamiento</label>
+                    <input type="text" @bind="tratamientoEditando.Nombre" class="form-control" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Descripción</label>
+                    <textarea rows="3" @bind="tratamientoEditando.Descripcion" class="form-control resize-none"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Precio base (RD$)</label>
+                    <input type="number" step="0.01" @bind="tratamientoEditando.PrecioBase" class="form-control" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Estado</label>
+                    <select @bind="tratamientoEditando.Estado" class="form-control">
+                        <option value="@EstadoRegistro.Activo">Activo</option>
+                        <option value="@EstadoRegistro.Inactivo">Inactivo</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-cancel" @onclick="CerrarModales">Cancelar</button>
+                <button class="btn-primary" @onclick="GuardarTratamientoCatalogo">Guardar</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- MODAL: REGISTRAR TRATAMIENTO REALIZADO -->
+@if (mostrarModalRealizado)
+{
+    <div class="modal-backdrop">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 class="modal-title">Registrar tratamiento realizado</h3>
+                <button class="modal-close-btn" @onclick="CerrarModales">&times;</button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorModal))
+            {
+                <div class="alert-error">@errorModal</div>
+            }
+
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Paciente</label>
+                    <select @bind="nuevoRealizado.PacienteId" class="form-control">
+                        <option value="0">Seleccione un paciente...</option>
+                        @foreach (var p in pacientes)
+                        {
+                            <option value="@p.Id">@p.Nombres @p.Apellidos</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Tratamiento del Catálogo</label>
+                    <select @bind="nuevoRealizado.TratamientoId" @bind:after="OnTratamientoSeleccionado" class="form-control">
+                        <option value="0">Seleccione un tratamiento...</option>
+                        @foreach (var t in listaTratamientos)
+                        {
+                            <option value="@t.Id">@t.Nombre (RD$@t.PrecioBase.ToString("N2"))</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Odontólogo</label>
+                    <select @bind="nuevoRealizado.OdontologoId" class="form-control">
+                        <option value="0">Seleccione un odontólogo...</option>
+                        @foreach (var o in odontologos)
+                        {
+                            <option value="@o.Id">@o.Nombres @o.Apellidos</option>
+                        }
+                    </select>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="form-group">
+                        <label class="form-label">Pieza Dental</label>
+                        <select @bind="piezaDentalSeleccionadaStr" class="form-control">
+                            <option value="">Ninguna / No aplica (General)</option>
+                            @if (piezasDentales.Any())
+                            {
+                                @foreach (var pd in piezasDentales)
+                                {
+                                    <option value="@pd.Id">@pd.Nombre</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Precio (RD$)</label>
+                        <input type="number" step="0.01" @bind="nuevoRealizado.Precio" class="form-control" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Estado</label>
+                    <select @bind="nuevoRealizado.Estado" class="form-control">
+                        <option value="@EstadoTratamiento.Pendiente">Pendiente</option>
+                        <option value="@EstadoTratamiento.EnProceso">En proceso</option>
+                        <option value="@EstadoTratamiento.Completado">Completado</option>
+                        <option value="@EstadoTratamiento.Cancelado">Cancelado</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Observaciones</label>
+                    <textarea rows="2" @bind="nuevoRealizado.Observaciones" placeholder="Notas clínicas..." class="form-control resize-none"></textarea>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-cancel" @onclick="CerrarModales">Cancelar</button>
+                <button class="btn-primary" @onclick="GuardarTratamientoRealizado">Guardar</button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .tratamientos-container {
+        padding: 24px 32px;
+        background-color: #F8FAFC;
+        min-height: 100vh;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    .top-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .page-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1E293B;
+        margin: 0;
+    }
+
+    .btn-primary {
+        background-color: #2563EB;
+        color: #FFFFFF;
+        border: none;
+        border-radius: 8px;
+        padding: 9px 18px;
+        font-size: 14px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        transition: background-color 0.15s ease;
+    }
+
+        .btn-primary:hover {
+            background-color: #1D4ED8;
+        }
+
+    .tabs-container {
+        display: flex;
+        gap: 28px;
+        border-bottom: 1px solid #E2E8F0;
+        margin-bottom: 24px;
+    }
+
+    .tab-button {
+        background: none;
+        border: none;
+        padding-bottom: 12px;
+        font-size: 15px;
+        font-weight: 500;
+        color: #64748B;
+        cursor: pointer;
+        position: relative;
+        transition: color 0.15s ease;
+    }
+
+        .tab-button:hover {
+            color: #1E293B;
+        }
+
+        .tab-button.active {
+            color: #2563EB;
+            font-weight: 600;
+        }
+
+            .tab-button.active::after {
+                content: '';
+                position: absolute;
+                bottom: -1px;
+                left: 0;
+                right: 0;
+                height: 2px;
+                background-color: #2563EB;
+            }
+
+    .filter-card {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 14px 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+
+    .search-box {
+        position: relative;
+        flex: 1;
+        max-width: 420px;
+    }
+
+    .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 16px;
+        height: 16px;
+        color: #94A3B8;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 8px 12px 8px 36px;
+        border: 1px solid #E2E8F0;
+        border-radius: 8px;
+        font-size: 14px;
+        color: #1E293B;
+        outline: none;
+        box-sizing: border-box;
+    }
+
+        .search-input:focus {
+            border-color: #2563EB;
+        }
+
+    .status-select {
+        border: 1px solid #E2E8F0;
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-size: 14px;
+        color: #1E293B;
+        background-color: #FFFFFF;
+        outline: none;
+        min-width: 140px;
+    }
+
+    .table-card {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .custom-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        text-align: left;
+    }
+
+        .custom-table thead {
+            background-color: #F8FAFC;
+            border-bottom: 1px solid #E2E8F0;
+        }
+
+        .custom-table th {
+            padding: 12px 20px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #64748B;
+            letter-spacing: 0.05em;
+        }
+
+        .custom-table td {
+            padding: 14px 20px;
+            border-bottom: 1px solid #F1F5F9;
+            color: #334155;
+        }
+
+        .custom-table tr:hover {
+            background-color: #F8FAFC;
+        }
+
+    .col-main {
+        font-weight: 600;
+        color: #1E293B;
+    }
+
+    .col-desc {
+        color: #64748B;
+    }
+
+    .col-price {
+        font-weight: 700;
+        color: #1E293B;
+    }
+
+    .col-date, .col-tooth {
+        color: #475569;
+    }
+
+    .status-active {
+        color: #16A34A;
+        font-weight: 600;
+        font-size: 13px;
+    }
+
+    .status-inactive {
+        color: #94A3B8;
+        font-weight: 500;
+        font-size: 13px;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 9999px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .badge-completado {
+        background-color: #DCFCE7;
+        color: #15803D;
+    }
+
+    .badge-proceso {
+        background-color: #DBEAFE;
+        color: #1D4ED8;
+    }
+
+    .badge-pendiente {
+        background-color: #FEF3C7;
+        color: #B45309;
+    }
+
+    .badge-cancelado {
+        background-color: #FEE2E2;
+        color: #B91C1C;
+    }
+
+    .btn-action {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 6px;
+        color: #94A3B8;
+    }
+
+        .btn-action:hover {
+            color: #2563EB;
+            background-color: #F1F5F9;
+        }
+
+    .action-icon {
+        width: 16px;
+        height: 16px;
+    }
+
+    .table-footer {
+        padding: 12px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+        color: #64748B;
+        border-top: 1px solid #F1F5F9;
+    }
+
+    .pagination-indicator {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        background-color: #F1F5F9;
+        color: #1E293B;
+        font-weight: 600;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 48px;
+        color: #94A3B8;
+    }
+
+    .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background-color: rgba(15, 23, 42, 0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .modal-card {
+        background: #FFFFFF;
+        border-radius: 14px;
+        width: 100%;
+        max-width: 480px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .modal-header {
+        padding: 18px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #F1F5F9;
+    }
+
+    .modal-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1E293B;
+        margin: 0;
+    }
+
+    .modal-close-btn {
+        background: none;
+        border: none;
+        font-size: 24px;
+        color: #94A3B8;
+        cursor: pointer;
+        line-height: 1;
+    }
+
+    .modal-body {
+        padding: 20px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .form-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #475569;
+    }
+
+    .form-control {
+        border: 1px solid #CBD5E1;
+        border-radius: 8px;
+        padding: 9px 12px;
+        font-size: 14px;
+        color: #1E293B;
+        outline: none;
+        box-sizing: border-box;
+    }
+
+        .form-control:focus {
+            border-color: #2563EB;
+        }
+
+    .resize-none {
+        resize: none;
+    }
+
+    .modal-footer {
+        padding: 16px 24px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        border-top: 1px solid #F1F5F9;
+        background-color: #F8FAFC;
+    }
+
+    .btn-cancel {
+        background: #FFFFFF;
+        border: 1px solid #CBD5E1;
+        color: #475569;
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+    }
+
+    .alert-error {
+        background-color: #FEE2E2;
+        color: #B91C1C;
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 13px;
+        margin: 12px 24px 0 24px;
+    }
+</style>
+
+@code {
+    private string pestañaActiva = "catalogo";
+    private string busqueda = "";
+    private string filtroEstado = "Todos";
+    private bool cargando = true;
+
+    private List<Tratamiento> listaTratamientos = new();
+    private List<Tratamiento> tratamientosFiltrados = new();
+
+    private List<TratamientoRealizado> listaRealizados = new();
+    private List<TratamientoRealizado> realizadosFiltrados = new();
+
+    private List<Paciente> pacientes = new();
+    private List<Odontologo> odontologos = new();
+    private List<PiezaDental> piezasDentales = new();
+
+    private bool mostrarModalCatalogo = false;
+    private bool mostrarModalRealizado = false;
+    private string? errorModal;
+
+    private Tratamiento tratamientoEditando = new();
+    private TratamientoRealizado nuevoRealizado = new();
+    private string piezaDentalSeleccionadaStr = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        cargando = true;
+        try
+        {
+            listaTratamientos = await DbContext.Tratamientos
+                .AsNoTracking()
+                .OrderBy(t => t.Nombre)
+                .ToListAsync();
+
+            listaRealizados = await DbContext.TratamientosRealizados
+                .Include(tr => tr.Paciente)
+                .Include(tr => tr.Tratamiento)
+                .Include(tr => tr.Odontologo)
+                .Include(tr => tr.PiezaDental)
+                .AsNoTracking()
+                .OrderByDescending(tr => tr.Fecha)
+                .ToListAsync();
+
+            pacientes = await DbContext.Pacientes.AsNoTracking().ToListAsync();
+            odontologos = await DbContext.Odontologos.AsNoTracking().ToListAsync();
+
+            try
+            {
+                piezasDentales = await DbContext.PiezasDentales.AsNoTracking().OrderBy(p => p.Id).ToListAsync();
+            }
+            catch
+            {
+                piezasDentales = new();
+            }
+
+            FiltrarDatos();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar datos: {ex.Message}");
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private void CambiarPestaña(string pestaña)
+    {
+        pestañaActiva = pestaña;
+        busqueda = "";
+        filtroEstado = "Todos";
+        FiltrarDatos();
+    }
+
+    private void FiltrarDatos()
+    {
+        var term = busqueda.Trim().ToLower();
+
+        if (pestañaActiva == "catalogo")
+        {
+            tratamientosFiltrados = listaTratamientos.Where(t =>
+            {
+                var coincideTexto = string.IsNullOrWhiteSpace(term) ||
+                                    t.Nombre.ToLower().Contains(term) ||
+                                    (t.Descripcion != null && t.Descripcion.ToLower().Contains(term));
+
+                var coincideEstado = filtroEstado switch
+                {
+                    "Activo" => t.Estado == EstadoRegistro.Activo,
+                    "Inactivo" => t.Estado == EstadoRegistro.Inactivo,
+                    _ => true
+                };
+
+                return coincideTexto && coincideEstado;
+            }).ToList();
+        }
+        else
+        {
+            realizadosFiltrados = listaRealizados.Where(r =>
+            {
+                var pacienteNombre = r.Paciente != null ? $"{r.Paciente.Nombres} {r.Paciente.Apellidos}".ToLower() : "";
+                var tratamientoNombre = r.Tratamiento != null ? r.Tratamiento.Nombre.ToLower() : "";
+
+                var coincideTexto = string.IsNullOrWhiteSpace(term) ||
+                                    pacienteNombre.Contains(term) ||
+                                    tratamientoNombre.Contains(term);
+
+                var coincideEstado = filtroEstado switch
+                {
+                    "Completado" => r.Estado == EstadoTratamiento.Completado,
+                    "En proceso" => r.Estado == EstadoTratamiento.EnProceso,
+                    "Pendiente" => r.Estado == EstadoTratamiento.Pendiente,
+                    "Cancelado" => r.Estado == EstadoTratamiento.Cancelado,
+                    _ => true
+                };
+
+                return coincideTexto && coincideEstado;
+            }).ToList();
+        }
+    }
+
+    private void AbrirModalNuevoCatalogo()
+    {
+        tratamientoEditando = new Tratamiento { Estado = EstadoRegistro.Activo, PrecioBase = 0 };
+        errorModal = null;
+        mostrarModalCatalogo = true;
+    }
+
+    private void EditarTratamiento(Tratamiento item)
+    {
+        tratamientoEditando = new Tratamiento
+        {
+            Id = item.Id,
+            Nombre = item.Nombre,
+            Descripcion = item.Descripcion,
+            PrecioBase = item.PrecioBase,
+            Estado = item.Estado
+        };
+        errorModal = null;
+        mostrarModalCatalogo = true;
+    }
+
+    private async Task GuardarTratamientoCatalogo()
+    {
+        if (string.IsNullOrWhiteSpace(tratamientoEditando.Nombre))
+        {
+            errorModal = "El nombre del tratamiento es obligatorio.";
+            return;
+        }
+
+        if (tratamientoEditando.PrecioBase <= 0)
+        {
+            errorModal = "El precio base debe ser mayor a 0.";
+            return;
+        }
+
+        try
+        {
+            if (tratamientoEditando.Id == 0)
+            {
+                DbContext.Tratamientos.Add(tratamientoEditando);
+            }
+            else
+            {
+                var entidad = await DbContext.Tratamientos.FindAsync(tratamientoEditando.Id);
+                if (entidad != null)
+                {
+                    entidad.Nombre = tratamientoEditando.Nombre;
+                    entidad.Descripcion = tratamientoEditando.Descripcion;
+                    entidad.PrecioBase = tratamientoEditando.PrecioBase;
+                    entidad.Estado = tratamientoEditando.Estado;
+                }
+            }
+
+            await DbContext.SaveChangesAsync();
+            mostrarModalCatalogo = false;
+            await CargarDatos();
+        }
+        catch (Exception ex)
+        {
+            var msg = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
+            errorModal = $"Error al guardar: {msg}";
+        }
+    }
+
+    private void AbrirModalRegistrarRealizado()
+    {
+        nuevoRealizado = new TratamientoRealizado
+        {
+            Fecha = DateTime.UtcNow,
+            Estado = EstadoTratamiento.Pendiente,
+            Precio = 0
+        };
+        piezaDentalSeleccionadaStr = "";
+        errorModal = null;
+        mostrarModalRealizado = true;
+    }
+
+    private void OnTratamientoSeleccionado()
+    {
+        var seleccionado = listaTratamientos.FirstOrDefault(t => t.Id == nuevoRealizado.TratamientoId);
+        if (seleccionado != null)
+        {
+            nuevoRealizado.Precio = seleccionado.PrecioBase;
+        }
+    }
+
+    private async Task GuardarTratamientoRealizado()
+    {
+        if (nuevoRealizado.PacienteId <= 0)
+        {
+            errorModal = "Debe seleccionar un paciente.";
+            return;
+        }
+
+        if (nuevoRealizado.TratamientoId <= 0)
+        {
+            errorModal = "Debe seleccionar un tratamiento.";
+            return;
+        }
+
+        if (nuevoRealizado.OdontologoId <= 0)
+        {
+            errorModal = "Debe seleccionar un odontólogo.";
+            return;
+        }
+
+        if (int.TryParse(piezaDentalSeleccionadaStr, out int idPieza) && idPieza > 0)
+        {
+            nuevoRealizado.PiezaDentalId = idPieza;
+        }
+        else
+        {
+            nuevoRealizado.PiezaDentalId = null;
+        }
+
+        try
+        {
+            DbContext.TratamientosRealizados.Add(nuevoRealizado);
+            await DbContext.SaveChangesAsync();
+            mostrarModalRealizado = false;
+            await CargarDatos();
+        }
+        catch (Exception ex)
+        {
+            var msg = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
+            errorModal = $"Error al registrar: {msg}";
+        }
+    }
+
+    private void CerrarModales()
+    {
+        mostrarModalCatalogo = false;
+        mostrarModalRealizado = false;
+    }
+}
