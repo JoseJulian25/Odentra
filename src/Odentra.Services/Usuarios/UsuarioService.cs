@@ -1,13 +1,16 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Odentra.Data;
 using Odentra.Data.Entities;
+using Odentra.Services.Odontologos.DTOs;
 using Odentra.Services.Usuarios.DTOs;
 
 namespace Odentra.Services.Usuarios;
 
 public sealed class UsuarioService(
     UserManager<Usuario> userManager,
-    RoleManager<Rol> roleManager) : IUsuarioService
+    RoleManager<Rol> roleManager,
+    ApplicationDbContext dbContext) : IUsuarioService
 {
     public async Task<IReadOnlyList<UsuarioListItemDto>> SearchAsync(
         string? searchTerm,
@@ -50,7 +53,8 @@ public sealed class UsuarioService(
             Nombre = user.Nombre,
             Email = user.Email ?? string.Empty,
             Estado = user.Estado,
-            Roles = (await userManager.GetRolesAsync(user)).ToList()
+            Roles = (await userManager.GetRolesAsync(user)).ToList(),
+            PerfilOdontologo = await GetOdontologoFormAsync(user.Id, cancellationToken)
         };
     }
 
@@ -63,6 +67,7 @@ public sealed class UsuarioService(
 
     public async Task CreateAsync(UsuarioFormDto model, CancellationToken cancellationToken = default)
     {
+        ValidateOdontologoProfile(model);
         var email = model.Email.Trim();
         var user = new Usuario
         {
@@ -74,9 +79,21 @@ public sealed class UsuarioService(
             EmailConfirmed = true
         };
 
-        var result = await userManager.CreateAsync(user, model.Password ?? string.Empty);
-        EnsureSucceeded(result);
-        await ReplaceRolesAsync(user, model.Roles, cancellationToken);
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var result = await userManager.CreateAsync(user, model.Password ?? string.Empty);
+            EnsureSucceeded(result);
+            await ReplaceRolesAsync(user, model.Roles, cancellationToken);
+            await SaveOdontologoProfileAsync(user.Id, model, cancellationToken);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task UpdateAsync(UsuarioFormDto model, CancellationToken cancellationToken = default)
@@ -85,6 +102,7 @@ public sealed class UsuarioService(
 
         var user = await userManager.FindByIdAsync(model.Id);
         if (user is null) throw new InvalidOperationException("El usuario no existe.");
+        ValidateOdontologoProfile(model);
 
         var email = model.Email.Trim();
         user.Nombre = model.Nombre.Trim();
@@ -92,13 +110,27 @@ public sealed class UsuarioService(
         user.Email = email;
         user.UserName = email;
 
-        var result = await userManager.UpdateAsync(user);
-        EnsureSucceeded(result);
-        await ReplaceRolesAsync(user, model.Roles, cancellationToken);
-
-        if (!string.IsNullOrWhiteSpace(model.Password))
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        try
         {
-            await ResetPasswordAsync(user.Id, model.Password, cancellationToken);
+            var result = await userManager.UpdateAsync(user);
+            EnsureSucceeded(result);
+            await ReplaceRolesAsync(user, model.Roles, cancellationToken);
+            await SaveOdontologoProfileAsync(user.Id, model, cancellationToken);
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            if (!string.IsNullOrWhiteSpace(model.Password))
+            {
+                var token = await userManager.GeneratePasswordResetTokenAsync(user);
+                EnsureSucceeded(await userManager.ResetPasswordAsync(user, token, model.Password));
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
         }
     }
 
@@ -128,6 +160,62 @@ public sealed class UsuarioService(
         EnsureSucceeded(await userManager.RemoveFromRolesAsync(user, currentRoles));
         if (requestedRoles.Length > 0) EnsureSucceeded(await userManager.AddToRolesAsync(user, requestedRoles));
     }
+
+    private async Task<OdontologoFormDto?> GetOdontologoFormAsync(string userId, CancellationToken cancellationToken)
+    {
+        var odontologo = await dbContext.Odontologos.AsNoTracking().SingleOrDefaultAsync(item => item.UsuarioId == userId, cancellationToken);
+        return odontologo is null ? null : new OdontologoFormDto
+        {
+            Id = odontologo.Id,
+            Estado = odontologo.Estado,
+            Nombres = odontologo.Nombres,
+            Apellidos = odontologo.Apellidos,
+            NumeroLicencia = odontologo.NumeroLicencia ?? string.Empty,
+            Especialidad = odontologo.Especialidad,
+            Telefono = odontologo.Telefono,
+            Correo = odontologo.Correo
+        };
+    }
+
+    private async Task SaveOdontologoProfileAsync(string userId, UsuarioFormDto model, CancellationToken cancellationToken)
+    {
+        var isDentist = model.Roles.Contains("Odontólogo", StringComparer.Ordinal);
+        var existing = await dbContext.Odontologos.SingleOrDefaultAsync(item => item.UsuarioId == userId, cancellationToken);
+
+        if (!isDentist)
+        {
+            if (existing is not null) existing.UsuarioId = null;
+            return;
+        }
+
+        var profile = model.PerfilOdontologo!;
+        var licenseInUse = await dbContext.Odontologos.AnyAsync(item => item.NumeroLicencia == profile.NumeroLicencia && item.UsuarioId != userId, cancellationToken);
+        if (licenseInUse) throw new InvalidOperationException("El número de licencia ya está asociado a otro odontólogo.");
+
+        if (existing is null)
+        {
+            existing = new Odontologo { UsuarioId = userId };
+            dbContext.Odontologos.Add(existing);
+        }
+
+        existing.Nombres = profile.Nombres.Trim();
+        existing.Apellidos = profile.Apellidos.Trim();
+        existing.NumeroLicencia = profile.NumeroLicencia.Trim();
+        existing.Especialidad = Normalize(profile.Especialidad);
+        existing.Telefono = Normalize(profile.Telefono);
+        existing.Correo = Normalize(profile.Correo);
+        existing.Estado = profile.Estado;
+    }
+
+    private static void ValidateOdontologoProfile(UsuarioFormDto model)
+    {
+        if (model.Roles.Contains("Odontólogo", StringComparer.Ordinal) && model.PerfilOdontologo is null)
+        {
+            throw new InvalidOperationException("Completa el perfil profesional del odontólogo.");
+        }
+    }
+
+    private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static void EnsureSucceeded(IdentityResult result)
     {

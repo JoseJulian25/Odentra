@@ -1,5 +1,6 @@
-using Odentra.Data.Entities;
 using System.ComponentModel.DataAnnotations;
+using Odentra.Data.Entities;
+using Odentra.Services.Odontologos.DTOs;
 
 namespace Odentra.Services.Usuarios.DTOs;
 
@@ -21,4 +22,5 @@ public sealed class UsuarioFormDto
 
     public EstadoRegistro Estado { get; set; } = EstadoRegistro.Activo;
     public List<string> Roles { get; set; } = [];
+    public OdontologoFormDto? PerfilOdontologo { get; set; }
 }
