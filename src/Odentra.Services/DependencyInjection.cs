@@ -79,7 +79,6 @@ public static class DependencyInjection
         services.AddScoped<IOdontogramaRepository, OdontogramaRepository>();
         services.AddScoped<IOdontogramaService, OdontogramaService>();
         services.AddScoped<IDashboardService, DashboardService>();
-        services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<ICitaRepository, CitaRepository>();
         services.AddScoped<ICitaService, CitaService>();
 
