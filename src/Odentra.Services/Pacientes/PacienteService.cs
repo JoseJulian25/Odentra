@@ -18,6 +18,7 @@ public sealed class PacienteService(IPacienteRepository repository) : IPacienteS
                 patient.Id,
                 $"{patient.Nombres} {patient.Apellidos}",
                 patient.Identificacion,
+                patient.TipoSangre,
                 patient.Telefono,
                 patient.Correo,
                 patient.FechaRegistro,
