@@ -23,9 +23,9 @@
     {
         <div class="page-header">
             <div>
-                <a class="back-link" href="/cita">← Citas</a>
+                <a class="back-link" href="/cita">← Citas </a>
                 <div class="title-line">
-                    <h1>Cita #@cita.Id</h1>
+                    <h1>Cita #@cita.Id 📅</h1>
                     <span class="status-badge @GetEstadoClass(cita.Estado)">
                         @cita.Estado
                     </span>
@@ -47,7 +47,7 @@
 
         <section class="detail-panel">
             <div class="section-heading">
-                <h2>Información de la cita</h2>
+                <h2>Información de la cita 📅</h2>
             </div>
             <dl class="detail-grid">
                 <div>
@@ -88,16 +88,6 @@
                 </div>
             </dl>
         </section>
-
-        @if (!string.IsNullOrWhiteSpace(cita.Observaciones))
-        {
-            <section class="detail-panel">
-                <div class="section-heading">
-                    <h2>Observaciones</h2>
-                </div>
-                <p style="color: #64748b; font-size: 13px; line-height: 1.6;">@cita.Observaciones</p>
-            </section>
-        }
 
         <section class="detail-panel">
             <div class="section-heading">

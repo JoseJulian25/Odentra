@@ -82,7 +82,6 @@ public sealed class CitaService(
             HoraInicio = model.HoraInicio,
             HoraFin = model.HoraFin,
             Motivo = model.Motivo,
-            Observaciones = model.Observaciones,
             Estado = EstadoCita.Programada
         };
 
@@ -120,7 +119,6 @@ public sealed class CitaService(
         cita.HoraInicio = model.HoraInicio;
         cita.HoraFin = model.HoraFin;
         cita.Motivo = model.Motivo;
-        cita.Observaciones = model.Observaciones;
         cita.Estado = model.Estado;
 
         await repository.UpdateAsync(cita, cancellationToken);
@@ -147,7 +145,6 @@ public sealed class CitaService(
             cita.HoraInicio,
             cita.HoraFin,
             cita.Motivo,
-            cita.Observaciones,
             cita.Estado,
             cita.FechaCreacion);
 
@@ -161,7 +158,6 @@ public sealed class CitaService(
             HoraInicio = cita.HoraInicio,
             HoraFin = cita.HoraFin,
             Motivo = cita.Motivo,
-            Observaciones = cita.Observaciones,
             Estado = cita.Estado
         };
 }

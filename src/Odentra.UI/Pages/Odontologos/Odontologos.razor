@@ -11,7 +11,7 @@
 <div class="patients-page">
     <div class="page-header">
         <div>
-            <h1>Odontólogos</h1>
+            <h1>Odontólogos 🦷</h1>
             <p>Administra la información de los odontólogos de la clínica.</p>
         </div>
         <AuthorizeView Policy="Odontologos.Crear">
@@ -23,14 +23,6 @@
         <div class="search-field">
             <label for="dentist-search">Buscar</label>
             <input id="dentist-search" @bind="searchTerm" @bind:event="oninput" @onkeydown="HandleSearchKeyDown" placeholder="Nombre, licencia, especialidad o teléfono" />
-        </div>
-        <div class="status-field">
-            <label for="dentist-status">Estado</label>
-            <select id="dentist-status" @bind="statusFilter">
-                <option value="Todos">Todos</option>
-                <option value="Activo">Activos</option>
-                <option value="Inactivo">Inactivos</option>
-            </select>
         </div>
         <button class="secondary-action" @onclick="LoadOdontologosAsync">Buscar</button>
     </section>
@@ -55,7 +47,7 @@
         }
         else
         {
-            <div class="table-scroll">
+            <div class="activity-scroll" style="max-height: 600px; overflow-y: auto;">
                 <table class="patients-table">
                     <thead>
                         <tr>
@@ -64,7 +56,7 @@
                             <th>Especialidad</th>
                             <th>Teléfono</th>
                             <th>Correo</th>
-                            <th>Estado</th>
+                            <th>Opciones</th>
                             <th><span class="visually-hidden">Acciones</span></th>
                         </tr>
                     </thead>
@@ -77,7 +69,6 @@
                                 <td>@(odontologo.Especialidad ?? "-")</td>
                                 <td>@(odontologo.Telefono ?? "-")</td>
                                 <td>@(odontologo.Correo ?? "-")</td>
-                                <td><span class="status-badge @(odontologo.Estado == EstadoRegistro.Activo ? "active" : "inactive")">@odontologo.Estado</span></td>
                                 <td class="row-actions">
                                     <a href="/odontologo/@odontologo.Id">Ver</a>
                                     <AuthorizeView Policy="Odontologos.Editar">
@@ -111,10 +102,13 @@
             var status = statusFilter switch
             {
                 "Activo" => EstadoRegistro.Activo,
-                "Inactivo" => EstadoRegistro.Inactivo,
-                _ => (EstadoRegistro?)null
+                _ => EstadoRegistro.Activo
             };
-            odontologos = (await OdontologoService.SearchAsync(searchTerm, status)).ToList();
+            // 1. Obtenemos los datos desde el servicio
+            var result = await OdontologoService.SearchAsync(searchTerm, status);
+
+            // 2. Ordenamos alfabéticamente por NombreCompleto usando LINQ (.OrderBy)
+            odontologos = result.OrderBy(o => o.NombreCompleto).ToList();
         }
         catch (Exception)
         {

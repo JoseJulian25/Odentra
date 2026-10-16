@@ -1,9 +1,10 @@
-using Odentra.UI.Components;
-using Odentra.Services;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Identity;
+using Odentra.UI.Components;
 using Odentra.Data.Entities;
+using Odentra.Services;
 using Odentra.Services.Autenticacion;
+using Odentra.Services.Odontograma;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +22,7 @@ using (var scope = app.Services.CreateScope())
     try
     {
         await IdentitySeeder.SeedAsync(scope.ServiceProvider, builder.Configuration, logger);
+        await OdontogramaCatalogSeeder.SeedAsync(scope.ServiceProvider.GetRequiredService<Odentra.Data.ApplicationDbContext>());
     }
     catch (Exception exception)
     {

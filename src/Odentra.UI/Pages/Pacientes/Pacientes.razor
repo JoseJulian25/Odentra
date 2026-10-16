@@ -11,7 +11,7 @@
 <div class="patients-page">
     <div class="page-header">
         <div>
-            <h1>Pacientes</h1>
+            <h1>Pacientes 👤</h1>
             <p>Administra la información general de los pacientes de la clínica.</p>
         </div>
         <AuthorizeView Policy="Pacientes.Crear">
@@ -23,14 +23,6 @@
         <div class="search-field">
             <label for="patient-search">Buscar</label>
             <input id="patient-search" @bind="searchTerm" @bind:event="oninput" @onkeydown="HandleSearchKeyDown" placeholder="Nombre, identificación o teléfono" />
-        </div>
-        <div class="status-field">
-            <label for="patient-status">Estado</label>
-            <select id="patient-status" @bind="statusFilter">
-                <option value="Todos">Todos</option>
-                <option value="Activo">Activos</option>
-                <option value="Inactivo">Inactivos</option>
-            </select>
         </div>
         <button class="secondary-action" @onclick="LoadPatientsAsync">Buscar</button>
     </section>
@@ -55,10 +47,10 @@
         }
         else
         {
-            <div class="table-scroll">
+            <div class="activity-scroll" style="max-height: 600px; overflow-y: auto;">
                 <table class="patients-table">
                     <thead>
-                        <tr><th>Nombre completo</th><th>Identificación</th><th>Teléfono</th><th>Correo</th><th>Registro</th><th>Estado</th><th><span class="visually-hidden">Acciones</span></th></tr>
+                        <tr><th>Nombre completo</th><th>Identificación</th><th>Tipo de Sangre</th><th>Teléfono</th><th>Correo</th><th>Registro</th><th>Opciones</th><th><span class="visually-hidden">Acciones</span></th></tr>
                     </thead>
                     <tbody>
                         @foreach (var patient in patients)
@@ -66,10 +58,10 @@
                             <tr>
                                 <td><a class="patient-name" href="/pacientes/@patient.Id">@patient.NombreCompleto</a></td>
                                 <td>@(patient.Identificacion ?? "-")</td>
+                                <td>@(patient.TipoSangre ?? "-")</td>
                                 <td>@(patient.Telefono ?? "-")</td>
                                 <td>@(patient.Correo ?? "-")</td>
                                 <td>@patient.FechaRegistro.ToLocalTime().ToString("dd/MM/yyyy")</td>
-                                <td><span class="status-badge @(patient.Estado == EstadoRegistro.Activo ? "active" : "inactive")">@patient.Estado</span></td>
                                 <td class="row-actions">
                                     <a href="/pacientes/@patient.Id">Ver</a>
                                     <AuthorizeView Policy="Pacientes.Editar">
@@ -103,10 +95,14 @@
             var status = statusFilter switch
             {
                 "Activo" => EstadoRegistro.Activo,
-                "Inactivo" => EstadoRegistro.Inactivo,
-                _ => (EstadoRegistro?)null
+                _ => EstadoRegistro.Activo
             };
-            patients = (await PacienteService.SearchAsync(searchTerm, status)).ToList();
+
+            // 1. Obtenemos los datos desde el servicio
+            var result = await PacienteService.SearchAsync(searchTerm, status);
+
+            // 2. Ordenamos alfabéticamente por NombreCompleto usando LINQ (.OrderBy)
+            patients = result.OrderBy(o => o.NombreCompleto).ToList();
         }
         catch (Exception)
         {
