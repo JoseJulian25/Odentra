@@ -6,6 +6,7 @@ public sealed record PacienteListItemDto(
     int Id,
     string NombreCompleto,
     string? Identificacion,
+    string? TipoSangre,
     string? Telefono,
     string? Correo,
     DateTime FechaRegistro,

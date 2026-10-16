@@ -104,16 +104,6 @@
                 </div>
             </section>
 
-            @if (IsEditing)
-            {
-                <div class="status-checkbox">
-                    <label>
-                        <input type="checkbox" @bind="IsOdontologoActive" />
-                        <span>Activo</span>
-                    </label>
-                </div>
-            }
-
             <div class="form-actions">
                 <a class="cancel-action" href="/odontologo">Cancelar</a>
                 <button class="primary-action" type="submit" disabled="@saving">

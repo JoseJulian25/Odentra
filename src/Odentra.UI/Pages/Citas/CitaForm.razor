@@ -271,8 +271,12 @@
 
         try
         {
-            pacientes = (await PacienteService.SearchAsync(null, EstadoRegistro.Activo)).ToList();
-            odontologos = (await OdontologoService.SearchAsync(null, EstadoRegistro.Activo)).ToList();
+            // Carga de catálogos ordenada alfabéticamente (A-Z)
+            var pacientesResultado = await PacienteService.SearchAsync(null, EstadoRegistro.Activo);
+            pacientes = pacientesResultado.OrderBy(p => p.NombreCompleto).ToList();
+
+            var odontologosResultado = await OdontologoService.SearchAsync(null, EstadoRegistro.Activo);
+            odontologos = odontologosResultado.OrderBy(o => o.NombreCompleto).ToList();
 
             if (Id.HasValue)
             {
