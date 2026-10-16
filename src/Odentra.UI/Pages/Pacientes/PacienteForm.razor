@@ -149,19 +149,8 @@
             </InputSelect>
             <ValidationMessage For="@(() => model.ContactoEmergenciaRelacion)" />
             </div>
-
         </div>
     </section>
-
-    @if (IsEditing)
-    {
-        <div class="status-checkbox">
-            <label>
-                <input type="checkbox" @bind="IsPatientActive" />
-                <span>Activo</span>
-            </label>
-        </div>
-    }
 
     <div class="form-actions">
         <a class="cancel-action" href="/pacientes">Cancelar</a>
