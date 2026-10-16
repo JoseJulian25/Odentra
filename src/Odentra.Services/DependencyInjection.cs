@@ -81,6 +81,7 @@ public static class DependencyInjection
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<ICitaRepository, CitaRepository>();
         services.AddScoped<ICitaService, CitaService>();
+        services.AddScoped<ITratamientoRepository, TratamientoRepository>();
 
         return services;
     }
