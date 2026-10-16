@@ -252,7 +252,7 @@
             var user = authenticationState.User;
             canEdit = user.HasClaim(PermissionCatalog.ClaimType, "Odontograma.Editar");
             userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            patients = (await OdontogramaService.GetActivePatientsAsync()).ToList();
+            patients = (await OdontogramaService.GetActivePatientsAsync()).OrderBy(o => o.NombreCompleto).ToList();
             if (patients.Count > 0)
             {
                 selectedPatientId = patients[0].Id;
