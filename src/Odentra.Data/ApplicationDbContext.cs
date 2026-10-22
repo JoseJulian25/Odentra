@@ -200,10 +200,16 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(payment => payment.Monto).HasPrecision(12, 2);
             entity.Property(payment => payment.MetodoPago).HasConversion<string>().HasMaxLength(20);
             entity.Property(payment => payment.Fecha).HasDefaultValueSql("SYSUTCDATETIME()");
+            entity.Property(payment => payment.UsuarioId).HasMaxLength(450).IsRequired();
             entity.HasIndex(payment => new { payment.TratamientoRealizadoId, payment.Fecha });
+            entity.HasIndex(payment => payment.UsuarioId);
             entity.HasOne(payment => payment.TratamientoRealizado)
                 .WithMany(treatment => treatment.Pagos)
                 .HasForeignKey(payment => payment.TratamientoRealizadoId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(payment => payment.Usuario)
+                .WithMany(user => user.Pagos)
+                .HasForeignKey(payment => payment.UsuarioId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
