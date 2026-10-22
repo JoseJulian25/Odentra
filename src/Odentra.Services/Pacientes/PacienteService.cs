@@ -1,10 +1,13 @@
 using Odentra.Data.Entities;
 using Odentra.Data.Repositories;
+using Odentra.Services.Auditoria;
 using Odentra.Services.Pacientes.DTOs;
 
 namespace Odentra.Services.Pacientes;
 
-public sealed class PacienteService(IPacienteRepository repository) : IPacienteService
+public sealed class PacienteService(
+    IPacienteRepository repository,
+    IAuditoriaService auditoriaService) : IPacienteService
 {
     public async Task<IReadOnlyList<PacienteListItemDto>> SearchAsync(
         string? searchTerm,
@@ -45,11 +48,17 @@ public sealed class PacienteService(IPacienteRepository repository) : IPacienteS
 
         var patient = new Paciente();
         ApplyForm(patient, model, normalizedIdentification);
+        var alergiasRegistradas = ApplyAlergias(patient, model);
         patient.FechaRegistro = DateTime.UtcNow;
         patient.Estado = EstadoRegistro.Activo;
 
         await repository.AddAsync(patient, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
+
+        await auditoriaService.RegistrarAsync(
+            "Agregó", "Pacientes", nameof(Paciente), patient.Id,
+            $"Agregó un paciente: {patient.Nombres} {patient.Apellidos}{SufijoAlergias(alergiasRegistradas)}", cancellationToken);
+
         return patient.Id;
     }
 
@@ -62,8 +71,13 @@ public sealed class PacienteService(IPacienteRepository repository) : IPacienteS
         await EnsureIdentificationIsAvailableAsync(normalizedIdentification, model.Id, cancellationToken);
 
         ApplyForm(patient, model, normalizedIdentification);
+        var alergiasRegistradas = ApplyAlergias(patient, model);
         patient.Estado = model.Estado;
         await repository.SaveChangesAsync(cancellationToken);
+
+        await auditoriaService.RegistrarAsync(
+            "Modificó", "Pacientes", nameof(Paciente), patient.Id,
+            $"Modificó el paciente: {patient.Nombres} {patient.Apellidos}{SufijoAlergias(alergiasRegistradas)}", cancellationToken);
     }
 
     public async Task SetStatusAsync(int id, EstadoRegistro estado, CancellationToken cancellationToken = default)
@@ -73,6 +87,11 @@ public sealed class PacienteService(IPacienteRepository repository) : IPacienteS
 
         patient.Estado = estado;
         await repository.SaveChangesAsync(cancellationToken);
+
+        var verbo = estado == EstadoRegistro.Activo ? "Activó" : "Desactivó";
+        await auditoriaService.RegistrarAsync(
+            verbo, "Pacientes", nameof(Paciente), patient.Id,
+            $"{verbo} el paciente: {patient.Nombres} {patient.Apellidos}", cancellationToken);
     }
 
     private async Task EnsureIdentificationIsAvailableAsync(string? identification, int? excludedId, CancellationToken cancellationToken)
@@ -101,6 +120,34 @@ public sealed class PacienteService(IPacienteRepository repository) : IPacienteS
 
     private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    // Texto explicito para dejar constancia de que SI se le pregunto al paciente.
+    // Asi "sin registrar" (Alergias nulo) no se confunde con "no refiere alergias".
+    private const string NoRefiereAlergiasTexto = "No refiere alergias.";
+
+    /// <summary>
+    /// Guarda las alergias en la HistoriaClinica del paciente (creandola solo cuando hay un dato
+    /// clinico que registrar). Devuelve true si el dato clinico cambio.
+    /// </summary>
+    private static bool ApplyAlergias(Paciente patient, PacienteFormDto model)
+    {
+        var valor = model.NoRefiereAlergias ? NoRefiereAlergiasTexto : Normalize(model.Alergias);
+
+        if (patient.HistoriaClinica is null)
+        {
+            if (valor is null) return false;
+            patient.HistoriaClinica = new HistoriaClinica { Alergias = valor };
+            return true;
+        }
+
+        if (patient.HistoriaClinica.Alergias == valor) return false;
+
+        patient.HistoriaClinica.Alergias = valor;
+        patient.HistoriaClinica.FechaModificacion = DateTime.UtcNow;
+        return true;
+    }
+
+    private static string SufijoAlergias(bool registradas) => registradas ? " (registró alergias)" : string.Empty;
+
     private static PacienteFormDto ToForm(Paciente patient) => new()
     {
         Id = patient.Id,
@@ -111,6 +158,8 @@ public sealed class PacienteService(IPacienteRepository repository) : IPacienteS
         FechaNacimiento = patient.FechaNacimiento,
         Sexo = patient.Sexo,
         TipoSangre = patient.TipoSangre,
+        Alergias = patient.HistoriaClinica?.Alergias == NoRefiereAlergiasTexto ? null : patient.HistoriaClinica?.Alergias,
+        NoRefiereAlergias = patient.HistoriaClinica?.Alergias == NoRefiereAlergiasTexto,
         Telefono = patient.Telefono,
         Correo = patient.Correo,
         Direccion = patient.Direccion,

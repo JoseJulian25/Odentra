@@ -8,6 +8,24 @@
 @inject IPacienteService PacienteService
 @inject NavigationManager Navigation
 
+@* ============================================================================
+   PÁGINA: Registrar / Editar paciente        Rutas: /pacientes/nuevo y /pacientes/editar/{id}
+
+   ¿Qué hace esta pantalla?
+     Es el formulario para crear un paciente o editar los datos administrativos de uno que ya
+     existe (nombre, cédula, teléfono, dirección...). Además, dentro de un recuadro que solo
+     ven los roles con permiso "HistoriaClinica.Crear", permite anotar las alergias.
+     Si no hay alergias se marca la casilla "No refiere alergias", que es distinto de dejar
+     el campo vacío ("sin registrar").
+
+   ¿Cómo se lee este archivo?
+     - Markup: datos generales del paciente + recuadro de alergias.
+     - @code (al final):
+         OnParametersSetAsync -> si es edición, cargar el paciente
+         AddAlergia           -> botones rápidos de alergias frecuentes
+         SaveAsync            -> crear o actualizar y volver a la ficha
+   ============================================================================ *@
+
 <PageTitle>@(IsEditing ? "Editar paciente" : "Registrar paciente") · Odentra</PageTitle>
 
 <div class="patient-form-page">
@@ -152,6 +170,45 @@
         </div>
     </section>
 
+    <AuthorizeView Policy="HistoriaClinica.Crear" Context="clinica">
+        <section class="form-panel allergy-panel">
+            <div class="section-heading">
+                <h2>Alergias</h2>
+                <span>Dato clínico</span>
+            </div>
+
+            <div class="allergy-body">
+                <label class="allergy-check">
+                    <InputCheckbox @bind-Value="NoRefiereAlergias" />
+                    <span>El paciente no refiere alergias</span>
+                </label>
+
+                @if (!model.NoRefiereAlergias)
+                {
+                    <div class="allergy-chips">
+                        <span class="chips-label">Agregar rápido</span>
+                        @foreach (var alergia in AlergiasFrecuentes)
+                        {
+                            <button type="button" class="allergy-chip" @onclick="() => AddAlergia(alergia)">+ @alergia</button>
+                        }
+                    </div>
+                }
+
+                <div class="field field-wide">
+                    <label for="allergies">Detalle</label>
+                    <InputTextArea id="allergies" @bind-Value="model.Alergias"
+                                   disabled="@model.NoRefiereAlergias" rows="3"
+                                   placeholder="Ej.: Penicilina: sarpullido; Látex: irritación de la piel" />
+                    <ValidationMessage For="@(() => model.Alergias)" />
+                </div>
+
+                <p class="allergy-hint">
+                    Si todavía no le preguntaste al paciente, dejá la casilla y el detalle vacíos: así se distingue "sin registrar" de "no refiere alergias".
+                </p>
+            </div>
+        </section>
+    </AuthorizeView>
+
     <div class="form-actions">
         <a class="cancel-action" href="/pacientes">Cancelar</a>
 
@@ -166,12 +223,74 @@
 </div>
 
 @code {
+    // =========================================================================================
+    // ESTADO DE LA PANTALLA  →  las variables que recuerdan lo que está pasando
+    // =========================================================================================
+
+    // El id del paciente que llega por la URL al editar; si es null, se está creando uno nuevo.
     [Parameter] public int? Id { get; set; }
-    private PacienteFormDto model = new();
-    private bool loading;
-    private bool saving;
-    private bool notFound;
-    private string? errorMessage;
+
+    private PacienteFormDto model = new();   // los datos del formulario
+    private bool loading;                    // ¿cargando el paciente a editar?
+    private bool saving;                     // ¿guardando?
+    private bool notFound;                   // ¿el paciente de la URL no existe?
+    private string? errorMessage;            // mensaje rojo (error)
+
+    /// <summary>
+    /// Lista de alergias más comunes que el formulario ofrece como botones rápidos
+    /// para no tener que escribirlas a mano.
+    /// </summary>
+    private static readonly string[] AlergiasFrecuentes =
+    [
+        "Penicilina / Amoxicilina",
+        "Anestésicos locales",
+        "Látex",
+        "AINEs (ibuprofeno)",
+        "Sulfas",
+        "Yodo / antisépticos"
+    ];
+
+    /// <summary>
+    /// Casilla "No refiere alergias". Si el usuario la marca, se borra el detalle de alergias
+    /// para no guardar dos datos contradictorios a la vez.
+    /// </summary>
+    private bool NoRefiereAlergias
+    {
+        get => model.NoRefiereAlergias;
+        set
+        {
+            model.NoRefiereAlergias = value;
+            if (value) model.Alergias = null;
+        }
+    }
+
+    /// <summary>
+    /// Agrega una de las alergias frecuentes (botones rápidos del formulario) al texto del
+    /// paciente. No repite una alergia que ya esté escrita y usa "; " como separador.
+    /// </summary>
+    private void AddAlergia(string alergia)
+    {
+        // Al agregar una alergia concreta se desmarca "No refiere alergias"
+        // (sería contradictorio).
+        model.NoRefiereAlergias = false;
+
+        // Paso 1: leer lo que ya había escrito, sin espacios sobrantes.
+        var actual = model.Alergias?.Trim();
+
+        // Paso 2: si no había nada, esta pasa a ser la primera alergia.
+        if (string.IsNullOrEmpty(actual))
+        {
+            model.Alergias = alergia;
+            return;
+        }
+
+        // Paso 3: si esa alergia ya estaba escrita (sin importar mayúsculas), no se repite.
+        if (actual.Contains(alergia, StringComparison.OrdinalIgnoreCase)) return;
+
+        // Paso 4: si no estaba, se agrega al final separada por "; ".
+        model.Alergias = $"{actual.TrimEnd(';', ',', ' ')}; {alergia}";
+    }
+
     private bool IsEditing => Id.HasValue;
     private bool IsPatientActive
     {
@@ -181,26 +300,46 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        // Si no hay id en la URL, es un paciente nuevo: no hay nada que cargar.
         if (!Id.HasValue) return;
+
+        // Paso 1: encender el "Cargando..." y pedir los datos del paciente.
         loading = true;
         var loaded = await PacienteService.GetFormAsync(Id.Value);
+
+        // Paso 2: si no existe, se marca notFound (el markup muestra "no encontrado");
+        // si existe, se llena el formulario con sus datos.
         if (loaded is null) notFound = true;
         else model = loaded;
+
         loading = false;
     }
 
     private async Task SaveAsync()
     {
+        // Paso 1: encender el "Guardando..." y limpiar el error anterior.
         saving = true;
         errorMessage = null;
         try
         {
-            if (IsEditing) await PacienteService.UpdateAsync(model);
-            else model.Id = await PacienteService.CreateAsync(model);
+            // Paso 2: decidir qué hacer según el caso.
+            if (IsEditing)
+            {
+                // Ya existe: se actualizan sus datos.
+                await PacienteService.UpdateAsync(model);
+            }
+            else
+            {
+                // Es nuevo: se crea y el servicio devuelve el id que le tocó.
+                model.Id = await PacienteService.CreateAsync(model);
+            }
+
+            // Paso 3: ir a la ficha del paciente (así el usuario ve el resultado).
             Navigation.NavigateTo($"/pacientes/{model.Id}");
         }
         catch (InvalidOperationException exception)
         {
+            // Errores esperados del servicio (por ejemplo, cédula repetida): se muestran tal cual.
             errorMessage = exception.Message;
         }
         finally { saving = false; }

@@ -3,6 +3,7 @@
 @using Odentra.Services.Citas
 @using Odentra.Services.Citas.DTOs
 @inject ICitaService CitaService
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>Citas · Odentra</PageTitle>
 
@@ -12,7 +13,10 @@
             <h1>Citas 📅</h1>
             <p>Administra las citas de los pacientes con los odontólogos.</p>
         </div>
-        <a class="primary-action" href="/cita/nuevo">+ Agendar cita</a>
+        @if (PuedeCrear)
+        {
+            <a class="primary-action" href="/cita/nuevo">+ Agendar cita</a>
+        }
     </div>
 
     <section class="filter-panel" aria-label="Filtros de citas">
@@ -79,10 +83,13 @@
                                 <td><a class="appointment-name" href="/cita/@cita.Id">@cita.PacienteNombre</a></td>
                                 <td>@cita.OdontologoNombre</td>
                                 <td>@(cita.Motivo ?? "-")</td>
-                                <td><span class="status-badge @GetEstadoClass(cita.Estado)">@cita.Estado</span></td>
+                                <td><span class="status-badge @GetEstadoClass(cita.Estado)">@NombreEstado(cita.Estado)</span></td>
                                 <td class="row-actions">
                                     <a href="/cita/@cita.Id">Ver</a>
-                                    <a href="/cita/editar/@cita.Id">Editar</a>
+                                    @if (PuedeEditarCita(cita.Estado))
+                                    {
+                                        <a href="/cita/editar/@cita.Id">Editar</a>
+                                    }
                                 </td>
                             </tr>
                         }
@@ -98,12 +105,22 @@
     private bool loading;
     private string? errorMessage;
     private string statusFilter = "";
+    private ClaimsPrincipal currentUser = new();
 
     // EL CAMBIO PRINCIPAL: Se inicializa con la fecha actual
     private DateOnly? selectedDate = DateOnly.FromDateTime(DateTime.Now);
 
+    private bool PuedeCrear => TienePermiso("Citas.Crear");
+    private bool PuedeEditar => TienePermiso("Citas.Editar");
+
+    private bool TienePermiso(string permiso) =>
+        currentUser.HasClaim(PermissionCatalog.ClaimType, permiso);
+
     protected override async Task OnInitializedAsync()
     {
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        currentUser = authenticationState.User;
+
         await LoadCitasAsync();
     }
 
@@ -143,6 +160,28 @@
         statusFilter = "";
         await LoadCitasAsync();
     }
+
+    // Una cita solo puede editarse mientras esté Programada o Confirmada.
+    // Atendida, Cancelada y No asistió son estados finales: solo se pueden ver.
+    private static bool EsEstadoFinal(EstadoCita estado) =>
+        estado is EstadoCita.Atendida or EstadoCita.Cancelada or EstadoCita.NoAsistio;
+
+    private bool EsRecepcionista => currentUser.IsInRole(RolesOdentra.Recepcionista);
+
+    // El recepcionista deja de poder editar la cita una vez confirmada.
+    private bool PuedeEditarCita(EstadoCita estado) =>
+        PuedeEditar && !EsEstadoFinal(estado) &&
+        !(estado == EstadoCita.Confirmada && EsRecepcionista);
+
+    private static string NombreEstado(EstadoCita estado) => estado switch
+    {
+        EstadoCita.Programada => "Programada",
+        EstadoCita.Confirmada => "Confirmada",
+        EstadoCita.Atendida => "Atendida",
+        EstadoCita.Cancelada => "Cancelada",
+        EstadoCita.NoAsistio => "No asistió",
+        _ => estado.ToString()
+    };
 
     private string GetEstadoClass(EstadoCita estado) => estado switch
     {

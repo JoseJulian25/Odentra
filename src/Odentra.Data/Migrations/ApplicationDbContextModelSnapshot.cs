@@ -17,7 +17,7 @@ namespace Odentra.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -395,6 +395,9 @@ namespace Odentra.Data.Migrations
                     b.Property<string>("Telefono")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("TipoSangre")
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Identificacion")
@@ -432,7 +435,14 @@ namespace Odentra.Data.Migrations
                     b.Property<int>("TratamientoRealizadoId")
                         .HasColumnType("int");
 
+                    b.Property<string>("UsuarioId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId");
 
                     b.HasIndex("TratamientoRealizadoId", "Fecha");
 
@@ -933,7 +943,15 @@ namespace Odentra.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Odentra.Data.Entities.Usuario", "Usuario")
+                        .WithMany("Pagos")
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("TratamientoRealizado");
+
+                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("Odentra.Data.Entities.RegistroAuditoria", b =>
@@ -1103,6 +1121,8 @@ namespace Odentra.Data.Migrations
             modelBuilder.Entity("Odentra.Data.Entities.Usuario", b =>
                 {
                     b.Navigation("Odontologo");
+
+                    b.Navigation("Pagos");
 
                     b.Navigation("RegistrosAuditoria");
                 });

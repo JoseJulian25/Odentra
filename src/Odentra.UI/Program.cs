@@ -42,7 +42,19 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseHttpsRedirection();
 
-app.UseStaticFiles();
+// Si alguien pide una direccion que no existe, el servidor responde 404 pero
+// SIN cuerpo: el navegador mostraba una pantalla en blanco.
+// UseStatusCodePagesWithReExecute vuelve a ejecutar el pipeline apuntando a /404,
+// asi el usuario ve la pantalla "No encontramos esta pagina" y el navegador
+// recibe igual el codigo 404 (que es lo correcto).
+app.UseStatusCodePagesWithReExecute("/404");
+
+// MapStaticAssets sirve wwwroot y los assets generados por el build
+// (Odentra.UI.styles.css, _framework/*.js) desde el manifiesto de endpoints,
+// por lo que funcionan igual en Development y en Production.
+// Con UseStaticFiles() esos archivos solo se servian en Development y el resto
+// de entornos la pagina quedaba sin estilos y sin Blazor.
+app.MapStaticAssets();
 app.UseAntiforgery();
 
 app.MapPost("/account/login", async (HttpContext context, IAntiforgery antiforgery, SignInManager<Usuario> signInManager, UserManager<Usuario> userManager) =>

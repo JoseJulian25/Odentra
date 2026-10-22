@@ -40,6 +40,9 @@ public sealed class CitaRepository(ApplicationDbContext dbContext) : ICitaReposi
         return await dbContext.Citas
             .Include(c => c.Paciente)
             .Include(c => c.Odontologo)
+            // La consulta clínica que se generó al atender la cita (si ya se atendió): sirve para
+            // que la pantalla pueda enlazar a la Historia Clínica.
+            .Include(c => c.ConsultaClinica)
             .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
     }
 
