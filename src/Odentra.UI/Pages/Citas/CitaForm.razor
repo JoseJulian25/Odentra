@@ -11,6 +11,7 @@
 @inject IPacienteService PacienteService
 @inject IOdontologoService OdontologoService
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>@(IsEditing ? "Editar cita 📅" : "Agendar cita 📅") · Odentra</PageTitle>
 
@@ -41,6 +42,14 @@
                 <div class="feedback error">@errorMessage</div>
             }
 
+            @if (IsEditing)
+            {
+                <div class="feedback info">
+                    Después de crear la cita solo puedes cambiar el odontólogo, la hora y el estado.
+                    El paciente, la fecha y el motivo no se pueden modificar.
+                </div>
+            }
+
             <section class="form-panel">
                 <div class="section-heading">
                     <h2>Participantes 👤</h2>
@@ -49,7 +58,7 @@
                 <div class="form-grid">
                     <div class="field">
                         <label for="patient-select">Paciente</label>
-                        <InputSelect id="patient-select" @bind-Value="model.PacienteId">
+                        <InputSelect id="patient-select" @bind-Value="model.PacienteId" disabled="@(IsEditing ? "disabled" : null)">
                             <option value="0">-- Seleccionar paciente --</option>
                             @foreach (var paciente in pacientes)
                             {
@@ -80,7 +89,7 @@
                 <div class="form-grid">
                     <div class="field">
                         <label for="date">Fecha</label>
-                        <InputDate id="date" @bind-Value="FechaSeleccionada" />
+                        <InputDate id="date" @bind-Value="FechaSeleccionada" disabled="@(IsEditing ? "disabled" : null)" />
                         <ValidationMessage For="@(() => model.Fecha)" />
                         @if (isWeekendError)
                         {
@@ -119,7 +128,7 @@
                 <div class="form-grid">
                     <div class="field">
                         <label for="reason">Motivo de la cita</label>
-                        <InputSelect id="reason" @bind-Value="model.Motivo">
+                        <InputSelect id="reason" @bind-Value="model.Motivo" disabled="@(IsEditing ? "disabled" : null)">
                             <option value="" disabled selected hidden>Seleccione el motivo principal</option>
 
                             <optgroup label="🧼 Prevención y Mantenimiento">
@@ -180,11 +189,10 @@
                         <div class="field">
                             <label for="status-select">Estado de la cita</label>
                             <InputSelect id="status-select" @bind-Value="model.Estado">
-                                <option value="@EstadoCita.Programada">Programada</option>
-                                <option value="@EstadoCita.Confirmada">Confirmada</option>
-                                <option value="@EstadoCita.Atendida">Atendida</option>
-                                <option value="@EstadoCita.Cancelada">Cancelada</option>
-                                <option value="@EstadoCita.NoAsistio">No asistió</option>
+                                @foreach (var opcion in OpcionesDeEstado())
+                                {
+                                    <option value="@opcion">@NombreEstado(opcion)</option>
+                                }
                             </InputSelect>
                         </div>
                     </div>
@@ -220,6 +228,65 @@
     private bool isWeekendError = false;
 
     private bool IsEditing => Id.HasValue;
+
+    private ClaimsPrincipal currentUser = new();
+    private EstadoCita estadoOriginal = EstadoCita.Programada;
+
+    private bool PuedeCrear => TienePermiso("Citas.Crear");
+    private bool PuedeEditar => TienePermiso("Citas.Editar");
+    private bool PuedeCancelar => TienePermiso("Citas.Cancelar");
+    private bool PuedeAtender => TienePermiso("Citas.Atender");
+
+    private bool TienePermiso(string permiso) =>
+        currentUser.HasClaim(PermissionCatalog.ClaimType, permiso);
+
+    // Una cita solo puede editarse mientras esté Programada o Confirmada.
+    // Atendida, Cancelada y No asistió son estados finales: solo se pueden ver.
+    private static bool EsEstadoFinal(EstadoCita estado) =>
+        estado is EstadoCita.Atendida or EstadoCita.Cancelada or EstadoCita.NoAsistio;
+
+    private bool EsRecepcionista => currentUser.IsInRole(RolesOdentra.Recepcionista);
+
+    // El recepcionista solo edita la cita mientras está Programada: una vez confirmada, deja de
+    // poder modificarla (a partir de ahí es el odontólogo quien la marca como atendida).
+    // El administrador conserva la edición mientras no sea un estado final.
+    private bool PuedeEditarCita(EstadoCita estado) =>
+        PuedeEditar && !EsEstadoFinal(estado) &&
+        !(estado == EstadoCita.Confirmada && EsRecepcionista);
+
+    // Estados a los que el usuario actual puede mover la cita, según su permiso y el estado guardado.
+    // Programada -> Confirmada (editar) / Cancelada o No asistió (cancelar).
+    // Confirmada -> Atendida (atender).
+    private List<EstadoCita> OpcionesDeEstado()
+    {
+        var opciones = new List<EstadoCita> { estadoOriginal };
+
+        if (estadoOriginal == EstadoCita.Programada)
+        {
+            if (PuedeEditar) opciones.Add(EstadoCita.Confirmada);
+            if (PuedeCancelar)
+            {
+                opciones.Add(EstadoCita.Cancelada);
+                opciones.Add(EstadoCita.NoAsistio);
+            }
+        }
+        else if (estadoOriginal == EstadoCita.Confirmada && PuedeAtender)
+        {
+            opciones.Add(EstadoCita.Atendida);
+        }
+
+        return opciones;
+    }
+
+    private static string NombreEstado(EstadoCita estado) => estado switch
+    {
+        EstadoCita.Programada => "Programada",
+        EstadoCita.Confirmada => "Confirmada",
+        EstadoCita.Atendida => "Atendida",
+        EstadoCita.Cancelada => "Cancelada",
+        EstadoCita.NoAsistio => "No asistió",
+        _ => estado.ToString()
+    };
 
     // Propiedad para enlazar la Fecha y validar si es fin de semana en tiempo real
     private DateOnly FechaSeleccionada
@@ -266,6 +333,22 @@
         loading = true;
         errorMessage = null;
 
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        currentUser = authenticationState.User;
+
+        // Control de acceso por permisos: agendar requiere Citas.Crear y editar requiere Citas.Editar.
+        if (IsEditing && !PuedeEditar)
+        {
+            Navigation.NavigateTo($"/cita/{Id}");
+            return;
+        }
+
+        if (!IsEditing && !PuedeCrear)
+        {
+            Navigation.NavigateTo("/cita");
+            return;
+        }
+
         // 1. Generar los horarios de inicio permitidos
         GenerateTimeSlots();
 
@@ -287,7 +370,17 @@
                 }
                 else
                 {
+                    // Una cita en estado final (Atendida, Cancelada o No asistió) no puede editarse,
+                    // y el recepcionista tampoco puede editar una cita ya confirmada.
+                    // Si se intenta abrir el formulario por URL directa, se redirige al detalle.
+                    if (!PuedeEditarCita(loaded.Estado))
+                    {
+                        Navigation.NavigateTo($"/cita/{loaded.Id}?bloqueada=1");
+                        return;
+                    }
+
                     model = loaded;
+                    estadoOriginal = loaded.Estado; // Estado guardado: define las transiciones permitidas
                     // Verificar si la fecha cargada es fin de semana
                     isWeekendError = model.Fecha.DayOfWeek == DayOfWeek.Saturday || model.Fecha.DayOfWeek == DayOfWeek.Sunday;
                 }

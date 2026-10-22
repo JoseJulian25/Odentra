@@ -5,6 +5,7 @@
 @using Odentra.Services.Usuarios
 @using Odentra.Services.Usuarios.DTOs
 @inject IUsuarioService UsuarioService
+@inject IRolService RolService
 @inject NavigationManager Navigation
 
 <PageTitle>@(IsEditing ? "Editar usuario" : "Registrar usuario") · Odentra</PageTitle>
@@ -112,6 +113,40 @@
                         </label>
                     }
                 </div>
+
+                @if (model.Roles.Count > 0)
+                {
+                    <div class="permission-preview">
+                        <div class="preview-heading">
+                            <strong>Permisos que otorgan los roles seleccionados</strong>
+                            <span>@PermisosEfectivos.Count permiso(s)</span>
+                        </div>
+                        @if (PermisosEfectivos.Count == 0)
+                        {
+                            <p class="preview-empty">Los roles seleccionados todavía no tienen permisos configurados.</p>
+                        }
+                        else
+                        {
+                            <div class="preview-groups">
+                                @foreach (var grupo in PermisosPorModulo)
+                                {
+                                    <div class="preview-group">
+                                        <span class="preview-module">@grupo.Key</span>
+                                        <div class="preview-chips">
+                                            @foreach (var permiso in grupo)
+                                            {
+                                                <span class="preview-chip" title="@permiso.Descripcion">@permiso.Nombre</span>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                            <p class="preview-note">
+                                Para habilitar o quitar permisos ve a <a href="/roles">Roles y permisos</a>. El usuario recibirá los cambios la próxima vez que cargue el sistema.
+                            </p>
+                        }
+                    </div>
+                }
             </section>
 
             <div class="form-actions">
@@ -130,6 +165,7 @@
 
     private UsuarioFormDto model = new();
     private List<string> availableRoles = [];
+    private Dictionary<string, IReadOnlyList<string>> permisosPorRol = new(StringComparer.Ordinal);
     private bool loading = true;
     private bool saving;
     private bool notFound;
@@ -144,12 +180,33 @@
         set => model.Estado = value ? EstadoRegistro.Activo : EstadoRegistro.Inactivo;
     }
 
-    private bool IsDentistRole => model.Roles.Contains("Odontólogo", StringComparer.Ordinal);
+    private bool IsDentistRole => model.Roles.Contains(RolesOdentra.Odontologo, StringComparer.Ordinal);
+
+    /// <summary>Permisos que el usuario tendrá realmente, según los roles marcados.</summary>
+    private IReadOnlyList<PermissionDefinition> PermisosEfectivos =>
+        model.Roles
+            .Where(permisosPorRol.ContainsKey)
+            .SelectMany(rol => permisosPorRol[rol])
+            .Distinct(StringComparer.Ordinal)
+            .Select(nombre => PermissionCatalog.All.FirstOrDefault(permiso => permiso.Nombre == nombre))
+            .Where(permiso => permiso is not null)
+            .Select(permiso => permiso!)
+            .OrderBy(permiso => permiso.Modulo, StringComparer.Ordinal)
+            .ThenBy(permiso => permiso.Nombre, StringComparer.Ordinal)
+            .ToList();
+
+    private IEnumerable<IGrouping<string, PermissionDefinition>> PermisosPorModulo =>
+        PermisosEfectivos.GroupBy(permiso => permiso.Modulo);
 
     protected override async Task OnParametersSetAsync()
     {
         loading = true;
         availableRoles = (await UsuarioService.GetAvailableRolesAsync()).ToList();
+
+        var roles = await RolService.GetRolesAsync();
+        permisosPorRol = roles
+            .Where(rol => !string.IsNullOrWhiteSpace(rol.Nombre))
+            .ToDictionary(rol => rol.Nombre, rol => rol.Permisos, StringComparer.Ordinal);
 
         if (IsEditing)
         {
@@ -172,7 +229,7 @@
         if (selected && !model.Roles.Contains(role))
         {
             model.Roles.Add(role);
-            if (role == "Odontólogo")
+            if (role == RolesOdentra.Odontologo)
             {
                 model.PerfilOdontologo ??= new();
                 model.PerfilOdontologo.Nombres = model.Nombre;
@@ -183,7 +240,7 @@
         if (!selected)
         {
             model.Roles.Remove(role);
-            if (role == "Odontólogo") showDentistModal = false;
+            if (role == RolesOdentra.Odontologo) showDentistModal = false;
         }
     }
 
@@ -248,9 +305,9 @@
 
     private static string GetRoleDescription(string role) => role switch
     {
-        "Administrador" => "Configuración y administración general",
-        "Recepcionista" => "Pacientes, citas y pagos",
-        "Odontólogo" => "Atención y gestión clínica",
+        RolesOdentra.Administrador => "Configuración y administración general",
+        RolesOdentra.Recepcionista => "Pacientes, citas y pagos",
+        RolesOdentra.Odontologo => "Atención y gestión clínica",
         _ => "Permisos definidos para este rol"
     };
 }
