@@ -8,12 +8,12 @@ using Odentra.Data.Repositories;
 using Odentra.Services.Autenticacion;
 using Odentra.Services.Autorizacion;
 using Odentra.Services.Odontograma;
-//using Odentra.Services.Dashboard;
 using Odentra.Services.Citas;
 using Odentra.Services.Dashboard;
 using Odentra.Services.Odontologos;
 using Odentra.Services.Pacientes;
 using Odentra.Services.Usuarios;
+using Odentra.Services.Auditoria;
 
 namespace Odentra.Services;
 
