@@ -12,6 +12,8 @@ using Odentra.Services.Citas;
 using Odentra.Services.Dashboard;
 using Odentra.Services.Odontologos;
 using Odentra.Services.Pacientes;
+using Odentra.Services.Pagos;
+using Odentra.Services.HistoriasClinicas;
 using Odentra.Services.Usuarios;
 using Odentra.Services.Auditoria;
 
@@ -40,7 +42,12 @@ public static class DependencyInjection
             options.ApplicationCookie?.Configure(cookieOptions =>
             {
                 cookieOptions.LoginPath = "/login";
-                cookieOptions.AccessDeniedPath = "/login?error=forbidden";
+                // Sin parametros en la ruta: si se agrega un "?" aqui, el framework
+                // construye mal la URL de redireccion y el usuario termina en un 404.
+                cookieOptions.AccessDeniedPath = "/acceso-denegado";
+                // Revalida la cookie en cada peticion para que los permisos se vuelvan a
+                // calcular desde la base y los cambios lleguen a las sesiones abiertas.
+                cookieOptions.Events.OnValidatePrincipal = SecurityStampValidator.ValidatePrincipalAsync;
             });
         });
 
@@ -60,6 +67,14 @@ public static class DependencyInjection
         .AddDefaultTokenProviders();
 
         services.AddScoped<IUserClaimsPrincipalFactory<Usuario>, UsuarioClaimsPrincipalFactory>();
+
+        // Sin esto la cookie dura 30 minutos sin recargar los permisos; con el intervalo
+        // en cero se regeneran los claims en cada peticion y el cambio es inmediato.
+        services.AddScoped<ISecurityStampValidator, SecurityStampValidator<Usuario>>();
+        services.Configure<SecurityStampValidatorOptions>(options =>
+            options.ValidationInterval = TimeSpan.Zero);
+
+        services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IRolService, RolService>();
 
         services.AddAuthorization(options =>
@@ -81,7 +96,13 @@ public static class DependencyInjection
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<ICitaRepository, CitaRepository>();
         services.AddScoped<ICitaService, CitaService>();
+        services.AddScoped<IAuditoriaRepository, AuditoriaRepository>();
+        services.AddScoped<IAuditoriaService, AuditoriaService>();
         services.AddScoped<ITratamientoRepository, TratamientoRepository>();
+        services.AddScoped<IPagoRepository, PagoRepository>();
+        services.AddScoped<IPagoService, PagoService>();
+        services.AddScoped<IHistoriaClinicaRepository, HistoriaClinicaRepository>();
+        services.AddScoped<IHistoriaClinicaService, HistoriaClinicaService>();
 
         return services;
     }

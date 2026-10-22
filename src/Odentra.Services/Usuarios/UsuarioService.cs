@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Odentra.Data;
 using Odentra.Data.Entities;
+using Odentra.Services.Auditoria;
+using Odentra.Services.Autorizacion;
 using Odentra.Services.Odontologos.DTOs;
 using Odentra.Services.Usuarios.DTOs;
 
@@ -10,7 +12,8 @@ namespace Odentra.Services.Usuarios;
 public sealed class UsuarioService(
     UserManager<Usuario> userManager,
     RoleManager<Rol> roleManager,
-    ApplicationDbContext dbContext) : IUsuarioService
+    ApplicationDbContext dbContext,
+    IAuditoriaService auditoriaService) : IUsuarioService
 {
     public async Task<IReadOnlyList<UsuarioListItemDto>> SearchAsync(
         string? searchTerm,
@@ -88,6 +91,10 @@ public sealed class UsuarioService(
             await SaveOdontologoProfileAsync(user.Id, model, cancellationToken);
             await dbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+
+            await auditoriaService.RegistrarAsync(
+                "Creó", "Usuarios", nameof(Usuario), null,
+                $"Creó el usuario: {await ObtenerNombreCompletoAsync(user, cancellationToken)}", cancellationToken);
         }
         catch
         {
@@ -103,6 +110,7 @@ public sealed class UsuarioService(
         var user = await userManager.FindByIdAsync(model.Id);
         if (user is null) throw new InvalidOperationException("El usuario no existe.");
         ValidateOdontologoProfile(model);
+        await EnsureNotLastActiveAdminAsync(user, model.Estado, model.Roles, cancellationToken);
 
         var email = model.Email.Trim();
         user.Nombre = model.Nombre.Trim();
@@ -126,6 +134,10 @@ public sealed class UsuarioService(
             }
 
             await transaction.CommitAsync(cancellationToken);
+
+            await auditoriaService.RegistrarAsync(
+                "Modificó", "Usuarios", nameof(Usuario), null,
+                $"Modificó el usuario: {await ObtenerNombreCompletoAsync(user, cancellationToken)}", cancellationToken);
         }
         catch
         {
@@ -137,8 +149,14 @@ public sealed class UsuarioService(
     public async Task SetStatusAsync(string id, EstadoRegistro estado, CancellationToken cancellationToken = default)
     {
         var user = await userManager.FindByIdAsync(id) ?? throw new InvalidOperationException("El usuario no existe.");
+        await EnsureNotLastActiveAdminAsync(user, estado, await userManager.GetRolesAsync(user), cancellationToken);
         user.Estado = estado;
         EnsureSucceeded(await userManager.UpdateAsync(user));
+
+        var verbo = estado == EstadoRegistro.Activo ? "Activó" : "Desactivó";
+        await auditoriaService.RegistrarAsync(
+            verbo, "Usuarios", nameof(Usuario), null,
+            $"{verbo} el usuario: {await ObtenerNombreCompletoAsync(user, cancellationToken)}", cancellationToken);
     }
 
     public async Task ResetPasswordAsync(string id, string password, CancellationToken cancellationToken = default)
@@ -146,6 +164,10 @@ public sealed class UsuarioService(
         var user = await userManager.FindByIdAsync(id) ?? throw new InvalidOperationException("El usuario no existe.");
         var token = await userManager.GeneratePasswordResetTokenAsync(user);
         EnsureSucceeded(await userManager.ResetPasswordAsync(user, token, password));
+
+        await auditoriaService.RegistrarAsync(
+            "Restableció", "Usuarios", nameof(Usuario), null,
+            $"Restableció la contraseña del usuario: {await ObtenerNombreCompletoAsync(user, cancellationToken)}", cancellationToken);
     }
 
     private async Task ReplaceRolesAsync(Usuario user, IEnumerable<string> roleNames, CancellationToken cancellationToken)
@@ -179,7 +201,7 @@ public sealed class UsuarioService(
 
     private async Task SaveOdontologoProfileAsync(string userId, UsuarioFormDto model, CancellationToken cancellationToken)
     {
-        var isDentist = model.Roles.Contains("Odontólogo", StringComparer.Ordinal);
+        var isDentist = model.Roles.Contains(RolesOdentra.Odontologo, StringComparer.Ordinal);
         var existing = await dbContext.Odontologos.SingleOrDefaultAsync(item => item.UsuarioId == userId, cancellationToken);
 
         if (!isDentist)
@@ -207,15 +229,54 @@ public sealed class UsuarioService(
         existing.Estado = profile.Estado;
     }
 
+    private async Task<string> ObtenerNombreCompletoAsync(Usuario user, CancellationToken cancellationToken)
+    {
+        var perfil = await dbContext.Odontologos.AsNoTracking()
+            .Where(odontologo => odontologo.UsuarioId == user.Id)
+            .Select(odontologo => new { odontologo.Nombres, odontologo.Apellidos })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        var nombrePerfil = perfil is null ? string.Empty : $"{perfil.Nombres} {perfil.Apellidos}".Trim();
+        return string.IsNullOrWhiteSpace(nombrePerfil) ? user.Nombre : nombrePerfil;
+    }
+
     private static void ValidateOdontologoProfile(UsuarioFormDto model)
     {
-        if (model.Roles.Contains("Odontólogo", StringComparer.Ordinal) && model.PerfilOdontologo is null)
+        if (model.Roles.Contains(RolesOdentra.Odontologo, StringComparer.Ordinal) && model.PerfilOdontologo is null)
         {
             throw new InvalidOperationException("Completa el perfil profesional del odontólogo.");
         }
     }
 
     private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>
+    /// Impide que una operación deje al sistema sin ningún administrador activo:
+    /// ya sea desactivando al último o quitándole el rol "Administrador".
+    /// </summary>
+    private async Task EnsureNotLastActiveAdminAsync(
+        Usuario user,
+        EstadoRegistro nuevoEstado,
+        IEnumerable<string> nuevosRoles,
+        CancellationToken cancellationToken)
+    {
+        var eraAdminActivo = user.Estado == EstadoRegistro.Activo
+                             && await userManager.IsInRoleAsync(user, RolesOdentra.Administrador);
+        if (!eraAdminActivo) return;
+
+        var seguiraAdminActivo = nuevoEstado == EstadoRegistro.Activo
+                                 && nuevosRoles.Contains(RolesOdentra.Administrador, StringComparer.Ordinal);
+        if (seguiraAdminActivo) return;
+
+        var admins = await userManager.GetUsersInRoleAsync(RolesOdentra.Administrador);
+        var otrosAdminsActivos = admins.Count(admin => admin.Id != user.Id && admin.Estado == EstadoRegistro.Activo);
+        if (otrosAdminsActivos == 0)
+        {
+            throw new InvalidOperationException(
+                "El sistema debe conservar al menos un administrador activo. " +
+                "Asigna el rol Administrador a otro usuario antes de desactivar o cambiar el rol de este.");
+        }
+    }
 
     private static void EnsureSucceeded(IdentityResult result)
     {

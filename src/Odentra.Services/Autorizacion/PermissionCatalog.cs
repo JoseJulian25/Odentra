@@ -43,15 +43,15 @@ public static class PermissionCatalog
     public static readonly IReadOnlyDictionary<string, IReadOnlySet<string>> DefaultRolePermissions =
         new Dictionary<string, IReadOnlySet<string>>
         {
-            ["Administrador"] = All.Select(permission => permission.Nombre).ToHashSet(),
-            ["Recepcionista"] = new HashSet<string>(StringComparer.Ordinal)
+            [RolesOdentra.Administrador] = All.Select(permission => permission.Nombre).ToHashSet(),
+            [RolesOdentra.Recepcionista] = new HashSet<string>(StringComparer.Ordinal)
             {
                 "Pacientes.Ver", "Pacientes.Crear", "Pacientes.Editar", "Pacientes.Desactivar",
                 "Odontologos.Ver", "Citas.Ver", "Citas.Crear", "Citas.Editar", "Citas.Cancelar",
                 "HistoriaClinica.Ver", "Odontograma.Ver", "Tratamientos.Ver",
-                "Pagos.Ver", "Pagos.Crear", "Usuarios.Ver", "Reportes.Ver"
+                "Pagos.Ver", "Pagos.Crear", "Reportes.Ver"
             },
-            ["Odontólogo"] = new HashSet<string>(StringComparer.Ordinal)
+            [RolesOdentra.Odontologo] = new HashSet<string>(StringComparer.Ordinal)
             {
                 "Pacientes.Ver", "Odontologos.Ver", "Citas.Ver", "Citas.Atender", "HistoriaClinica.Ver", "HistoriaClinica.Crear",
                 "HistoriaClinica.Editar", "Odontograma.Ver", "Odontograma.Editar", "Tratamientos.Ver",

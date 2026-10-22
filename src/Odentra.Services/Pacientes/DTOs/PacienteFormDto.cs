@@ -45,4 +45,10 @@ public sealed class PacienteFormDto
 
     [StringLength(100)]
     public string? ContactoEmergenciaRelacion { get; set; }
+
+    // Dato clínico: no se guarda en Paciente sino en su HistoriaClinica.
+    [StringLength(1000, ErrorMessage = "El detalle de alergias no puede superar los 1000 caracteres.")]
+    public string? Alergias { get; set; }
+
+    public bool NoRefiereAlergias { get; set; }
 }
