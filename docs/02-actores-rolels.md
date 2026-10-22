@@ -388,10 +388,10 @@ La siguiente matriz representa la configuración inicial propuesta.
 | Citas - Editar                     |       ✓       |       ✓       |      —     |
 | Citas - Cancelar                   |       ✓       |       ✓       |      —     |
 | Citas - Atender                    |       ✓       |       —       |      ✓     |
-| Historia Clínica - Ver             |       ✓       |       —       |      ✓     |
+| Historia Clínica - Ver             |       ✓       |       ✓       |      ✓     |
 | Historia Clínica - Crear           |       —       |       —       |      ✓     |
 | Historia Clínica - Editar          |       —       |       —       |      ✓     |
-| Odontograma - Ver                  |       ✓       |       —       |      ✓     |
+| Odontograma - Ver                  |       ✓       |       ✓       |      ✓     |
 | Odontograma - Editar               |       —       |       —       |      ✓     |
 | Tratamientos - Ver                 |       ✓       |       ✓       |      ✓     |
 | Tratamientos - Crear catálogo      |       ✓       |       —       |      —     |
@@ -415,5 +415,11 @@ La siguiente matriz representa la configuración inicial propuesta.
 | Reportes - Clínicos                |       ✓       |       —       |      ✓     |
 
 `*` El Odontólogo verá principalmente sus propias citas.
+
+**Historia Clínica y Odontograma (solo lectura para Recepción).** El Recepcionista puede
+**ver** la historia clínica y el odontograma, pero siempre en modo lectura: no tiene los
+permisos *Crear* ni *Editar*. Así puede consultar en mostrador datos útiles (por ejemplo si
+el paciente tiene alergias registradas) sin poder modificar información clínica, que queda
+reservada al Odontólogo.
 
 ---

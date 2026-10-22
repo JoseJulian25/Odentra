@@ -317,6 +317,14 @@ Cuando el paciente sea atendido, la cita podrá marcarse como `Atendida`.
 
 A partir de esta acción, el odontólogo podrá acceder al flujo clínico correspondiente.
 
+Al marcar la cita como `Atendida`, el sistema registra automáticamente su consulta clínica en la
+historia del paciente (una sola por cita) y la deja `Abierta` para que el odontólogo la complete. El
+detalle de la cita muestra entonces un enlace **"Ver historia clínica del paciente"**. Este puente se
+describe en el apartado 7.4.2.
+
+El estado `Atendida` es final: una vez marcada, la cita ya no se edita (solo se consulta o se
+reprograma).
+
 ---
 
 # 7. Módulo de Historia Clínica
@@ -343,6 +351,30 @@ El odontólogo podrá registrar y actualizar la información clínica.
 
 Las modificaciones importantes deberán quedar registradas mediante auditoría.
 
+### 7.3.1. Modo detalle y modo edición (implementado)
+
+La pestaña **Historia general** trabaja en dos modos:
+
+* **Detalle (por defecto):** muestra lo que está guardado en forma de lectura: alergias,
+  enfermedades y hábitos como fichas; los medicamentos como filas (medicamento y dosis); y los
+  textos largos tal como se escribieron. Cuando un campo no tiene dato se indica **"Sin registrar"**,
+  que es distinto de un texto explícito como **"No refiere alergias"**.
+
+* **Edición:** al pulsar el lápiz ✏️ del encabezado de una sección (*Antecedentes médicos* o
+  *Antecedentes odontológicos*) esa sección cambia a campos de texto con **lo que ya estaba
+  guardado**, para corregirlo o agregar más información. Aparecen entonces los botones
+  **"Guardar cambios"** y **"Cancelar"**.
+
+Reglas del modo edición:
+
+* Solo se edita una sección a la vez (mientras una está abierta, el lápiz de la otra queda
+  deshabilitado).
+* **"Cancelar"** vuelve a leer la historia de la base de datos, de manera que los cambios escritos
+  se descartan sin guardarse.
+* Al guardar (o al cambiar de paciente) la pantalla vuelve sola al modo detalle.
+* Una sección pasa a edición únicamente con el permiso `HistoriaClinica.Editar`. Los roles que solo
+  tienen `HistoriaClinica.Ver` ven el detalle en modo lectura y sin lápices.
+
 ## 7.4. Consultas clínicas
 
 La historia clínica tendrá un historial de consultas.
@@ -357,6 +389,57 @@ Cada consulta podrá registrar:
 * Plan de tratamiento.
 
 Las consultas anteriores serán de solo lectura una vez finalizadas, salvo que posteriormente se establezca una funcionalidad explícita para corrección.
+
+### 7.4.1. Registro de la consulta (implementado)
+
+En la pantalla de Historia Clínica, la pestaña **Consultas** incluye el botón **"+ Nueva consulta"**.
+Se muestra a los usuarios cuyo rol tenga el permiso `HistoriaClinica.Crear`: el acceso lo decide el
+permiso del rol, igual que en el resto de los módulos.
+
+La ventana solicita: odontólogo tratante, fecha, motivo, diagnóstico, plan de tratamiento y
+observaciones. El odontólogo, el motivo y el diagnóstico son obligatorios, y la fecha no puede ser
+futura. La lista de odontólogos trae solo los activos y deja preseleccionado al odontólogo vinculado
+al usuario de la sesión, cuando ese usuario es odontólogo (el vínculo se crea al asignarle el rol
+Odontólogo a un usuario, desde el módulo de Usuarios).
+
+La primera consulta de un paciente crea su historia clínica (la tabla de consultas necesita una
+historia a la que pertenecer); esto no contradice la regla de "no crear historias vacías", porque
+la consulta ya es un dato clínico.
+
+Cada consulta nace en estado `Abierta` y puede cerrarse con el botón **"Cerrar consulta"**. Una vez
+cerrada queda de solo lectura. Tanto el registro como el cierre quedan anotados en la auditoría.
+
+### 7.4.2. Puente cita → consulta (implementado)
+
+Cuando una cita se marca como `Atendida` (desde el detalle de la cita con el botón **"Marcar como
+atendida"**, o al dejar la cita en ese estado desde su formulario de edición), el sistema registra
+automáticamente la **consulta clínica de esa cita**. Esto une el flujo `Cita → Atención → Historia
+Clínica` descrito en el apartado 18.
+
+La consulta así creada:
+
+* Hereda de la cita el paciente, el odontólogo tratante, la fecha y el motivo.
+* Nace en estado `Abierta`.
+* Queda ligada a esa cita (una cita genera una sola consulta; si el usuario vuelve a marcar la
+  misma cita como atendida, no se duplica nada).
+* Si el paciente todavía no tenía historia clínica, se le crea en ese momento.
+
+Los campos clínicos (diagnóstico y plan de tratamiento) los completa después el odontólogo desde la
+pestaña **Consultas** de la Historia Clínica con el botón **"Completar consulta"**.
+
+### 7.4.3. Completar una consulta abierta (implementado)
+
+Mientras una consulta siga `Abierta`, el odontólogo puede modificarla con el botón **"Completar
+consulta"** (por ejemplo para terminarle el diagnóstico a la consulta que nació de una cita). Se
+abre la misma ventana del registro, con los datos que ya tenía la consulta cargados, y se puede
+corregir también el odontólogo tratante.
+
+El botón se muestra con el permiso `HistoriaClinica.Editar` (modificar información clínica), mientras
+que **"+ Nueva consulta"** y **"Cerrar consulta"** se muestran con `HistoriaClinica.Crear` (registrar
+la consulta), tal como se definió en 7.4.1.
+
+Una consulta `Cerrada` es de solo lectura: el servicio rechaza cualquier intento de modificarla. Cada
+consulta completada queda anotada en la auditoría.
 
 ---
 
@@ -571,6 +654,23 @@ Precio del tratamiento - Total de pagos
 El sistema no deberá permitir registrar un pago cuyo monto sea superior al saldo pendiente.
 
 Una vez cubierto el precio total, el saldo deberá ser cero.
+
+## 10.6. Pagos del paciente (implementado)
+
+En la ficha del paciente (`/pacientes/{id}`) la pestaña **Pagos** muestra:
+
+* Tres tarjetas de totales: **Total en tratamientos**, **Total pagado** (con la cantidad de pagos) y
+  **Saldo pendiente**.
+* La tabla **Pagos realizados** con **todos** los pagos hechos por el paciente, del más reciente al
+  más antiguo: fecha, tratamiento al que pertenece el pago, monto, método, quién lo registró y un
+  botón **Ver**.
+
+El botón **Ver** lleva al **detalle del pago** (página `/pagos/{id del tratamiento}`), donde se ve
+la ficha del tratamiento con sus cuotas. No lleva al listado del módulo de Pagos.
+
+Todo el contenido de esta pestaña (las tarjetas y la tabla) está protegido con el permiso
+`Pagos.Ver`: un rol que no lo tenga (por ejemplo el odontólogo) ve un aviso en lugar de los montos,
+y así el botón **Ver** nunca lleva a una pantalla de "Acceso denegado".
 
 ---
 
@@ -863,6 +963,42 @@ Reportes
 Los elementos de navegación que el usuario no tenga permiso para utilizar no deberán mostrarse.
 
 Sin embargo, la ocultación visual de opciones no sustituirá la validación de autorización en la aplicación.
+
+## 17.1. Dirección no encontrada (error 404)
+
+Si el usuario abre una dirección que no corresponde a ninguna pantalla del sistema (un enlace
+roto, o una dirección escrita a mano en el navegador), el sistema muestra una pantalla propia
+de "Página no encontrada", con una ilustración y un botón para volver al inicio. La respuesta
+conserva el código HTTP 404.
+
+La misma pantalla se muestra en los dos caminos posibles:
+
+| Cómo llega el usuario a la dirección | Quién muestra la pantalla |
+|---|---|
+| Escribe la dirección directamente en el navegador | El servidor, mediante `UseStatusCodePagesWithReExecute("/404")` en `Program.cs` |
+| Llega navegando dentro de la aplicación (enlace roto) | El router de Blazor, mediante `<NotFound>` en `Components/Routes.razor` |
+
+La pantalla también es accesible de forma directa en `/404` (con respuesta 200), lo que permite
+verla o capturarla sin inventar una dirección inválida.
+
+La imagen mostrada vive en `wwwroot/images/404.png` y es reemplazable: basta sustituir ese
+archivo. El botón "Volver al inicio" que viene dibujado dentro de la imagen se vuelve
+cliqueable mediante un enlace transparente superpuesto, cuyas medidas (en porcentajes) están
+en `Components/PaginaNoEncontrada.razor.css`.
+
+La ilustración ocupa todo el espacio disponible del área de contenido y, si la ventana se hace
+más pequeña (o más baja), se contrae sin cortarse ni deformarse. Para lograrlo se toma el menor
+entre dos límites: el ancho disponible y el ancho que permite el alto de la ventana. El alto se
+obtiene de `100dvh` menos los 18px de margen que el sistema pone arriba y abajo del área de
+contenido, multiplicado por la proporción de la imagen (1264 × 843). Así:
+
+- en una ventana ancha y baja, manda el alto y la imagen queda centrada con aire a los lados;
+- en una ventana angosta, manda el ancho y la imagen ocupa todo el ancho;
+- en pantallas de 900px o menos, la barra lateral se oculta y la imagen aprovecha ese espacio.
+
+La propiedad `aspect-ratio: 1264 / 843` conserva la proporción exacta de la imagen, que es lo que
+garantiza que el enlace del botón siga cayendo en el mismo lugar en cualquier tamaño de ventana
+(verificado a 1600×1000, 1366×768 y 900×650).
 
 ---
 
