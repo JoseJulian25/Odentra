@@ -1,8 +1,12 @@
+using System.Security.Claims;
+using System.Text;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Identity;
 using Odentra.UI.Components;
 using Odentra.Data.Entities;
 using Odentra.Services;
+using Odentra.Services.Auditoria;
+using Odentra.Services.Auditoria.DTOs;
 using Odentra.Services.Autenticacion;
 using Odentra.Services.Odontograma;
 
@@ -57,7 +61,13 @@ app.UseStatusCodePagesWithReExecute("/404");
 app.MapStaticAssets();
 app.UseAntiforgery();
 
-app.MapPost("/account/login", async (HttpContext context, IAntiforgery antiforgery, SignInManager<Usuario> signInManager, UserManager<Usuario> userManager) =>
+app.MapPost("/account/login", async (
+    HttpContext context,
+    IAntiforgery antiforgery,
+    SignInManager<Usuario> signInManager,
+    UserManager<Usuario> userManager,
+    IAuditoriaService auditoriaService,
+    ILogger<Program> logger) =>
 {
     await antiforgery.ValidateRequestAsync(context);
     var form = await context.Request.ReadFormAsync();
@@ -66,25 +76,113 @@ app.MapPost("/account/login", async (HttpContext context, IAntiforgery antiforge
     var returnUrl = form["ReturnUrl"].ToString();
     var user = await userManager.FindByEmailAsync(email);
 
-    if (user is null || user.Estado != EstadoRegistro.Activo)
+    if (user is null)
     {
+        return Results.Redirect("/login?error=invalid");
+    }
+
+    var direccionIp = ObtenerDireccionIp(context);
+    var agenteUsuario = ObtenerAgenteUsuario(context);
+
+    if (user.Estado != EstadoRegistro.Activo)
+    {
+        await RegistrarEventoAsync(
+            auditoriaService,
+            logger,
+            user.Id,
+            AuditoriaAcciones.InicioSesionFallido,
+            DescribirEvento("Intento de inicio de sesión con una cuenta inactiva", direccionIp),
+            direccionIp,
+            agenteUsuario);
+
         return Results.Redirect("/login?error=invalid");
     }
 
     var result = await signInManager.PasswordSignInAsync(user, password, false, true);
     if (result.Succeeded)
     {
+        await RegistrarEventoAsync(
+            auditoriaService,
+            logger,
+            user.Id,
+            AuditoriaAcciones.InicioSesion,
+            DescribirEvento("Inicio de sesión exitoso", direccionIp),
+            direccionIp,
+            agenteUsuario);
+
         return Results.Redirect(IsLocalUrl(returnUrl) ? returnUrl : "/");
     }
+
+    var motivo = result.IsLockedOut
+        ? "Intento de inicio de sesión con una cuenta bloqueada temporalmente"
+        : "Intento de inicio de sesión con credenciales incorrectas";
+
+    await RegistrarEventoAsync(
+        auditoriaService,
+        logger,
+        user.Id,
+        AuditoriaAcciones.InicioSesionFallido,
+        DescribirEvento(motivo, direccionIp),
+        direccionIp,
+        agenteUsuario);
 
     return Results.Redirect(result.IsLockedOut ? "/login?error=locked" : "/login?error=invalid");
 });
 
-app.MapGet("/account/logout", async (SignInManager<Usuario> signInManager) =>
+app.MapGet("/account/logout", async (
+    HttpContext context,
+    SignInManager<Usuario> signInManager,
+    IAuditoriaService auditoriaService,
+    ILogger<Program> logger) =>
 {
+    var usuarioId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if (!string.IsNullOrWhiteSpace(usuarioId))
+    {
+        var direccionIp = ObtenerDireccionIp(context);
+        await RegistrarEventoAsync(
+            auditoriaService,
+            logger,
+            usuarioId,
+            AuditoriaAcciones.CierreSesion,
+            DescribirEvento("Cierre de sesión", direccionIp),
+            direccionIp,
+            ObtenerAgenteUsuario(context));
+    }
+
     await signInManager.SignOutAsync();
     return Results.Redirect("/login");
 });
+
+app.MapGet("/auditoria/exportar", async (
+    string? texto,
+    string? usuarioId,
+    string? accion,
+    string? modulo,
+    string? entidad,
+    DateTime? desde,
+    DateTime? hasta,
+    IAuditoriaService auditoriaService) =>
+{
+    var filtro = new AuditoriaFiltroDto
+    {
+        Texto = texto,
+        UsuarioId = usuarioId,
+        Accion = accion,
+        Modulo = modulo,
+        Entidad = entidad,
+        Desde = desde,
+        Hasta = hasta
+    };
+
+    var registros = await auditoriaService.GetParaExportarAsync(filtro);
+    var contenido = ConstruirCsv(registros);
+    var nombreArchivo = $"auditoria-{DateTime.Now:yyyyMMdd-HHmm}.csv";
+
+    return Results.File(
+        new UTF8Encoding(encoderShouldEmitUTF8Identifier: true).GetBytes(contenido),
+        "text/csv; charset=utf-8",
+        nombreArchivo);
+}).RequireAuthorization("Auditoria.Ver");
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
@@ -93,3 +191,90 @@ app.Run();
 
 static bool IsLocalUrl(string? url) =>
     !string.IsNullOrWhiteSpace(url) && url.StartsWith('/') && !url.StartsWith("//") && !url.Contains('\\');
+
+static string? ObtenerDireccionIp(HttpContext context)
+{
+    var direccion = context.Connection.RemoteIpAddress;
+    if (direccion is null)
+    {
+        return null;
+    }
+
+    if (direccion.IsIPv4MappedToIPv6)
+    {
+        direccion = direccion.MapToIPv4();
+    }
+
+    return direccion.ToString();
+}
+
+static string? ObtenerAgenteUsuario(HttpContext context)
+{
+    var agente = context.Request.Headers.UserAgent.ToString();
+    if (string.IsNullOrWhiteSpace(agente))
+    {
+        return null;
+    }
+
+    return agente.Length <= 512 ? agente : agente[..512];
+}
+
+static string DescribirEvento(string descripcion, string? direccionIp) =>
+    string.IsNullOrWhiteSpace(direccionIp)
+        ? $"{descripcion}."
+        : $"{descripcion} desde {direccionIp}.";
+
+static async Task RegistrarEventoAsync(
+    IAuditoriaService auditoriaService,
+    ILogger logger,
+    string usuarioId,
+    string accion,
+    string descripcion,
+    string? direccionIp,
+    string? agenteUsuario)
+{
+    try
+    {
+        await auditoriaService.RegistrarEventoSesionAsync(
+            usuarioId,
+            accion,
+            descripcion,
+            direccionIp,
+            agenteUsuario);
+    }
+    catch (Exception exception)
+    {
+        // La auditoría no debe impedir que el usuario inicie o cierre sesión.
+        logger.LogWarning(exception, "No se pudo registrar el evento de auditoría {Accion}.", accion);
+    }
+}
+
+static string ConstruirCsv(IReadOnlyList<AuditoriaRegistroDto> registros)
+{
+    var builder = new StringBuilder();
+    builder.AppendLine("Fecha y hora,Usuario,Correo,Acción,Módulo,Entidad,ID entidad,Descripción,Dirección IP,Agente de usuario");
+
+    foreach (var registro in registros)
+    {
+        builder
+            .Append(EscaparCsv(registro.FechaHora.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"))).Append(',')
+            .Append(EscaparCsv(registro.Usuario)).Append(',')
+            .Append(EscaparCsv(registro.UsuarioEmail)).Append(',')
+            .Append(EscaparCsv(registro.Accion)).Append(',')
+            .Append(EscaparCsv(registro.Modulo)).Append(',')
+            .Append(EscaparCsv(registro.EntidadLegible)).Append(',')
+            .Append(EscaparCsv(registro.EntidadId?.ToString())).Append(',')
+            .Append(EscaparCsv(registro.Descripcion)).Append(',')
+            .Append(EscaparCsv(registro.DireccionIp)).Append(',')
+            .Append(EscaparCsv(registro.AgenteUsuario))
+            .AppendLine();
+    }
+
+    return builder.ToString();
+}
+
+static string EscaparCsv(string? valor)
+{
+    var texto = valor ?? string.Empty;
+    return $"\"{texto.Replace("\"", "\"\"")}\"";
+}

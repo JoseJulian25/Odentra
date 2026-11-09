@@ -220,8 +220,12 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(audit => audit.Accion).HasMaxLength(50).IsRequired();
             entity.Property(audit => audit.Modulo).HasMaxLength(100).IsRequired();
             entity.Property(audit => audit.Entidad).HasMaxLength(100).IsRequired();
+            entity.Property(audit => audit.DireccionIp).HasMaxLength(45);
+            entity.Property(audit => audit.AgenteUsuario).HasMaxLength(512);
             entity.Property(audit => audit.FechaHora).HasDefaultValueSql("SYSUTCDATETIME()");
             entity.HasIndex(audit => new { audit.UsuarioId, audit.FechaHora });
+            entity.HasIndex(audit => audit.FechaHora);
+            entity.HasIndex(audit => new { audit.Modulo, audit.Accion });
             entity.HasOne(audit => audit.Usuario)
                 .WithMany(user => user.RegistrosAuditoria)
                 .HasForeignKey(audit => audit.UsuarioId)

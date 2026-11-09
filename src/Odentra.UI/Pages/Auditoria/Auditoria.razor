@@ -1,0 +1,663 @@
+@page "/auditoria"
+@attribute [Authorize(Policy = "Auditoria.Ver")]
+@using System.Globalization
+@using Odentra.Services.Auditoria
+@using Odentra.Services.Auditoria.DTOs
+@inject IAuditoriaService AuditoriaService
+
+@* ============================================================================
+   PÁGINA: Auditoría        Ruta: /auditoria
+
+   ¿Qué hace esta pantalla?
+     Muestra, en modo solo lectura, las operaciones relevantes registradas por
+     el sistema: quién las hizo, cuándo, en qué módulo, sobre qué entidad y con
+     qué descripción. Arriba hay tarjetas de resumen, luego los filtros y al
+     final la tabla paginada con el detalle de cada evento.
+
+   ¿Cómo se lee este archivo?
+     - Markup: encabezado, tarjetas, panel de filtros, tabla y ventana de detalle.
+     - @code (al final):
+         OnInitializedAsync   -> cargar filtros y primera página
+         BuscarAsync          -> consultar el servicio con los filtros actuales
+         VerDetalleAsync      -> abrir la ventana de detalle de un evento
+         Ayudantes            -> fechas, etiquetas, iniciales y URL de exportación
+   ============================================================================ *@
+
+<PageTitle>Auditoría · Odentra</PageTitle>
+
+<div class="audit-page">
+    <header class="audit-header">
+        <div>
+            <span class="page-eyebrow">Administración</span>
+            <h1>Auditoría</h1>
+            <p>Registro de acciones del sistema — solo lectura.</p>
+        </div>
+
+        <div class="audit-header-actions">
+            <span class="readonly-badge">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="11" width="18" height="11" rx="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                Solo lectura
+            </span>
+
+            @if (totalRegistros > 0)
+            {
+                <a class="secondary-action export-action" href="@ExportUrl"
+                   title="Descargar los registros filtrados en formato CSV">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Exportar CSV
+                </a>
+            }
+            else
+            {
+                <span class="secondary-action export-action is-disabled" aria-disabled="true">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Exportar CSV
+                </span>
+            }
+        </div>
+    </header>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span>Total de eventos</span>
+            <strong class="stat-total">@resumen.Total.ToString("N0", Cultura)</strong>
+            <small>Registro histórico completo</small>
+        </div>
+        <div class="stat-card">
+            <span>Eventos hoy</span>
+            <strong class="stat-hoy">@resumen.Hoy.ToString("N0", Cultura)</strong>
+            <small>Actividad del día</small>
+        </div>
+        <div class="stat-card">
+            <span>Últimos 7 días</span>
+            <strong class="stat-semana">@resumen.UltimosSieteDias.ToString("N0", Cultura)</strong>
+            <small>Ventana reciente</small>
+        </div>
+        <div class="stat-card">
+            <span>Usuarios con actividad</span>
+            <strong class="stat-usuarios">@resumen.UsuariosDistintos.ToString("N0", Cultura)</strong>
+            <small>Usuarios distintos registrados</small>
+        </div>
+    </div>
+
+    <section class="filter-panel" aria-label="Filtros de auditoría">
+        <div class="filter-field search-field">
+            <label for="audit-search">Buscar</label>
+            <div class="search-control">
+                <span aria-hidden="true">⌕</span>
+                <input id="audit-search"
+                       @bind="filtro.Texto"
+                       @bind:event="oninput"
+                       @onkeydown="HandleSearchKeyDown"
+                       placeholder="Descripción, entidad o usuario..." />
+            </div>
+        </div>
+
+        <div class="filter-field date-field">
+            <label for="audit-from">Desde</label>
+            <input id="audit-from" type="date" @bind="filtro.Desde" @bind:after="BuscarDesdePrimeraPaginaAsync" />
+        </div>
+
+        <div class="filter-field date-field">
+            <label for="audit-to">Hasta</label>
+            <input id="audit-to" type="date" @bind="filtro.Hasta" @bind:after="BuscarDesdePrimeraPaginaAsync" />
+        </div>
+
+        <div class="filter-field">
+            <label for="audit-module">Módulo</label>
+            <select id="audit-module" @bind="filtro.Modulo" @bind:after="BuscarDesdePrimeraPaginaAsync">
+                <option value="">Todos</option>
+                @foreach (var opcion in filtros.Modulos)
+                {
+                    <option value="@opcion.Valor">@opcion.Texto</option>
+                }
+            </select>
+        </div>
+
+        <div class="filter-field">
+            <label for="audit-action">Acción</label>
+            <select id="audit-action" @bind="filtro.Accion" @bind:after="BuscarDesdePrimeraPaginaAsync">
+                <option value="">Todas</option>
+                @foreach (var opcion in filtros.Acciones)
+                {
+                    <option value="@opcion.Valor">@opcion.Texto</option>
+                }
+            </select>
+        </div>
+
+        <div class="filter-field">
+            <label for="audit-user">Usuario</label>
+            <select id="audit-user" @bind="filtro.UsuarioId" @bind:after="BuscarDesdePrimeraPaginaAsync">
+                <option value="">Todos</option>
+                @foreach (var opcion in filtros.Usuarios)
+                {
+                    <option value="@opcion.Valor">@opcion.Texto</option>
+                }
+            </select>
+        </div>
+
+        <div class="filter-field">
+            <label for="audit-entity">Entidad</label>
+            <select id="audit-entity" @bind="filtro.Entidad" @bind:after="BuscarDesdePrimeraPaginaAsync">
+                <option value="">Todas</option>
+                @foreach (var opcion in filtros.Entidades)
+                {
+                    <option value="@opcion.Valor">@opcion.Texto</option>
+                }
+            </select>
+        </div>
+
+        <div class="filter-actions">
+            <button type="button" class="primary-action"
+                    @onclick="() => BuscarAsync(actualizarResumen: true, reiniciarPagina: true)"
+                    disabled="@cargando">
+                Buscar
+            </button>
+            <button type="button" class="secondary-action" @onclick="LimpiarFiltrosAsync" disabled="@cargando">
+                Limpiar
+            </button>
+        </div>
+    </section>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="feedback error" role="alert">@errorMessage</div>
+    }
+
+    <section class="table-panel" aria-label="Registros de auditoría">
+        @if (cargando)
+        {
+            <div class="loading-bar" aria-hidden="true"></div>
+        }
+
+        <div class="table-summary">
+            <span>
+                @FormatRegistros(totalRegistros)
+                @if (filtro.TieneFiltros)
+                {
+                    <span class="summary-muted">con los filtros aplicados</span>
+                }
+            </span>
+
+            @if (!string.IsNullOrWhiteSpace(resumen.ModuloMasActivo))
+            {
+                <span class="summary-module">
+                    Módulo más activo: <strong>@resumen.ModuloMasActivo</strong>
+                    (@resumen.EventosModuloMasActivo.ToString("N0", Cultura))
+                </span>
+            }
+        </div>
+
+        @if (cargando && registros.Count == 0)
+        {
+            <div class="table-state">Cargando registros de auditoría...</div>
+        }
+        else if (registros.Count == 0)
+        {
+            <div class="table-state empty-state">
+                <span class="empty-icon" aria-hidden="true">≡</span>
+                <strong>No hay registros de auditoría</strong>
+                <span>Prueba con otros filtros o amplía el rango de fechas.</span>
+            </div>
+        }
+        else
+        {
+            <div class="table-scroll @(cargando ? "is-loading" : "")">
+                <table class="audit-table">
+                    <thead>
+                        <tr>
+                            <th>Fecha y hora</th>
+                            <th>Usuario</th>
+                            <th>Acción</th>
+                            <th>Módulo</th>
+                            <th>Entidad</th>
+                            <th>ID</th>
+                            <th>Descripción</th>
+                            <th><span class="visually-hidden">Detalle</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var registro in registros)
+                        {
+                            <tr>
+                                <td class="mono date-cell">@FormatearFechaHora(registro.FechaHora)</td>
+                                <td>
+                                    <div class="audit-user">
+                                        <span class="user-avatar">@GetInitials(registro.Usuario)</span>
+                                        <span class="user-copy">
+                                            <strong>@registro.Usuario</strong>
+                                            @if (!string.IsNullOrWhiteSpace(registro.UsuarioEmail))
+                                            {
+                                                <small>@registro.UsuarioEmail</small>
+                                            }
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="audit-badge @NivelClase(registro.Nivel)">@registro.Accion</span>
+                                </td>
+                                <td class="module-cell">@registro.Modulo</td>
+                                <td class="entity-cell">@registro.EntidadLegible</td>
+                                <td class="entity-id">@(registro.EntidadId.HasValue ? $"#{registro.EntidadId}" : "—")</td>
+                                <td class="description-cell">
+                                    <span class="description-clamp" title="@registro.Descripcion">
+                                        @(string.IsNullOrWhiteSpace(registro.Descripcion) ? "Sin descripción." : registro.Descripcion)
+                                    </span>
+                                </td>
+                                <td class="action-cell">
+                                    <button type="button" class="view-action"
+                                            @onclick="() => VerDetalleAsync(registro)"
+                                            title="Ver detalle del evento">
+                                        Ver
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        <div class="table-footer">
+            <div class="footer-info">
+                <span>
+                    Mostrando @desdeRegistro–@hastaRegistro de
+                    @totalRegistros.ToString("N0", Cultura) registros
+                </span>
+                <label class="page-size">
+                    <span>Filas por página</span>
+                    <select @bind="tamanoPagina" @bind:after="CambiarTamanoPaginaAsync">
+                        <option value="12">12</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </label>
+            </div>
+
+            @if (totalPaginas > 1)
+            {
+                <nav class="pagination" aria-label="Paginación de auditoría">
+                    <button type="button" class="page-btn" @onclick="() => IrAPaginaAsync(1)"
+                            disabled="@(paginaActual == 1)" aria-label="Primera página">«</button>
+                    <button type="button" class="page-btn" @onclick="() => IrAPaginaAsync(paginaActual - 1)"
+                            disabled="@(paginaActual == 1)" aria-label="Página anterior">‹</button>
+
+                    @if (paginaActual > 3)
+                    {
+                        <span class="page-ellipsis" aria-hidden="true">…</span>
+                    }
+
+                    @foreach (var numero in PaginasVisibles())
+                    {
+                        <button type="button"
+                                class="page-btn @(numero == paginaActual ? "active" : "")"
+                                @onclick="() => IrAPaginaAsync(numero)">
+                            @numero
+                        </button>
+                    }
+
+                    @if (paginaActual < totalPaginas - 2)
+                    {
+                        <span class="page-ellipsis" aria-hidden="true">…</span>
+                    }
+
+                    <button type="button" class="page-btn" @onclick="() => IrAPaginaAsync(paginaActual + 1)"
+                            disabled="@(paginaActual == totalPaginas)" aria-label="Página siguiente">›</button>
+                    <button type="button" class="page-btn" @onclick="() => IrAPaginaAsync(totalPaginas)"
+                            disabled="@(paginaActual == totalPaginas)" aria-label="Última página">»</button>
+                </nav>
+            }
+        </div>
+    </section>
+</div>
+
+@if (detalle is not null)
+{
+    <div class="modal-backdrop" @onclick="CerrarDetalle">
+        <section class="modal-card audit-detail-modal" role="dialog" aria-modal="true"
+                 aria-labelledby="audit-detail-title"
+                 @onclick="DetenerPropagacion" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <div>
+                    <h3 class="modal-title" id="audit-detail-title">Detalle del evento</h3>
+                    <p class="modal-subtitle">@FormatearFechaLarga(detalle.FechaHora)</p>
+                </div>
+                <button type="button" class="modal-close-btn" @onclick="CerrarDetalle" aria-label="Cerrar">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                @if (cargandoDetalle)
+                {
+                    <div class="detail-loading">Actualizando detalle...</div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(detalleError))
+                {
+                    <div class="alert-error" role="alert">@detalleError</div>
+                }
+
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <span>Usuario</span>
+                        <strong>@detalle.Usuario</strong>
+                        @if (!string.IsNullOrWhiteSpace(detalle.UsuarioEmail))
+                        {
+                            <small>@detalle.UsuarioEmail</small>
+                        }
+                    </div>
+
+                    <div class="detail-item">
+                        <span>Acción</span>
+                        <span class="audit-badge @NivelClase(detalle.Nivel)">@detalle.Accion</span>
+                    </div>
+
+                    <div class="detail-item">
+                        <span>Módulo</span>
+                        <strong>@detalle.Modulo</strong>
+                    </div>
+
+                    <div class="detail-item">
+                        <span>Entidad</span>
+                        <strong>@detalle.EntidadLegible</strong>
+                        <small>@detalle.Entidad</small>
+                    </div>
+
+                    <div class="detail-item">
+                        <span>ID del registro</span>
+                        <strong>@(detalle.EntidadId.HasValue ? $"#{detalle.EntidadId}" : "—")</strong>
+                    </div>
+
+                    <div class="detail-item">
+                        <span>Evento</span>
+                        <strong>#@detalle.Id</strong>
+                    </div>
+
+                    <div class="detail-item">
+                        <span>Dirección IP</span>
+                        <strong class="mono">@(detalle.DireccionIp ?? "—")</strong>
+                    </div>
+
+                    <div class="detail-item">
+                        <span>Navegador / agente</span>
+                        <strong class="agent">@(detalle.AgenteUsuario ?? "—")</strong>
+                    </div>
+                </div>
+
+                <div class="detail-description">
+                    <span>Descripción</span>
+                    <p>@(string.IsNullOrWhiteSpace(detalle.Descripcion) ? "Sin descripción." : detalle.Descripcion)</p>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" @onclick="CerrarDetalle">Cerrar</button>
+            </div>
+        </section>
+    </div>
+}
+
+@code {
+    // Cultura de República Dominicana: fechas y números con el formato local.
+    private static readonly CultureInfo Cultura = new("es-DO");
+
+    private AuditoriaFiltroDto filtro = new();
+    private AuditoriaFiltrosDto filtros = new([], [], [], []);
+    private AuditoriaResumenDto resumen = new(0, 0, 0, 0, null, 0);
+    private List<AuditoriaRegistroDto> registros = [];
+    private AuditoriaRegistroDto? detalle;
+
+    private int paginaActual = 1;
+    private int totalPaginas;
+    private int totalRegistros;
+    private int desdeRegistro;
+    private int hastaRegistro;
+    private int tamanoPagina = 12;
+
+    private bool cargando = true;
+    private bool cargandoDetalle;
+    private string? errorMessage;
+    private string? detalleError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarFiltrosAsync();
+        await BuscarAsync(actualizarResumen: true, reiniciarPagina: true);
+    }
+
+    private async Task CargarFiltrosAsync()
+    {
+        try
+        {
+            filtros = await AuditoriaService.GetFiltrosAsync();
+        }
+        catch (Exception)
+        {
+            // Si fallan los catálogos, la tabla todavía puede funcionar con los filtros vacíos.
+            filtros = new([], [], [], []);
+        }
+    }
+
+    private async Task BuscarAsync(bool actualizarResumen = false, bool reiniciarPagina = false)
+    {
+        if (reiniciarPagina)
+        {
+            paginaActual = 1;
+        }
+
+        cargando = true;
+        errorMessage = null;
+
+        try
+        {
+            if (actualizarResumen)
+            {
+                await CargarResumenAsync();
+            }
+
+            var resultado = await AuditoriaService.BuscarAsync(filtro, paginaActual, tamanoPagina);
+
+            registros = resultado.Items.ToList();
+            totalRegistros = resultado.Total;
+            paginaActual = resultado.Pagina;
+            totalPaginas = resultado.TotalPaginas;
+            desdeRegistro = resultado.DesdeRegistro;
+            hastaRegistro = resultado.HastaRegistro;
+        }
+        catch (InvalidOperationException exception)
+        {
+            errorMessage = exception.Message;
+            LimpiarResultados();
+        }
+        catch (Exception)
+        {
+            errorMessage = "No fue posible cargar los registros de auditoría.";
+            LimpiarResultados();
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task CargarResumenAsync()
+    {
+        try
+        {
+            resumen = await AuditoriaService.GetResumenAsync();
+        }
+        catch (Exception)
+        {
+            // Las tarjetas son informativas: si fallan, la tabla sigue disponible.
+        }
+    }
+
+    private void LimpiarResultados()
+    {
+        registros = [];
+        totalRegistros = 0;
+        totalPaginas = 0;
+        desdeRegistro = 0;
+        hastaRegistro = 0;
+    }
+
+    private Task BuscarDesdePrimeraPaginaAsync() =>
+        BuscarAsync(reiniciarPagina: true);
+
+    private Task HandleSearchKeyDown(KeyboardEventArgs args) =>
+        args.Key == "Enter"
+            ? BuscarAsync(actualizarResumen: true, reiniciarPagina: true)
+            : Task.CompletedTask;
+
+    private async Task LimpiarFiltrosAsync()
+    {
+        filtro = new AuditoriaFiltroDto();
+        await BuscarAsync(actualizarResumen: true, reiniciarPagina: true);
+    }
+
+    private Task CambiarTamanoPaginaAsync() =>
+        BuscarAsync(reiniciarPagina: true);
+
+    private async Task IrAPaginaAsync(int pagina)
+    {
+        if (pagina < 1 || pagina > totalPaginas || pagina == paginaActual)
+        {
+            return;
+        }
+
+        paginaActual = pagina;
+        await BuscarAsync();
+    }
+
+    private IEnumerable<int> PaginasVisibles()
+    {
+        var inicio = Math.Max(1, paginaActual - 2);
+        var fin = Math.Min(totalPaginas, paginaActual + 2);
+        return Enumerable.Range(inicio, fin - inicio + 1);
+    }
+
+    private async Task VerDetalleAsync(AuditoriaRegistroDto registro)
+    {
+        detalle = registro;
+        detalleError = null;
+        cargandoDetalle = true;
+
+        try
+        {
+            var actualizado = await AuditoriaService.GetDetalleAsync(registro.Id);
+            if (actualizado is not null)
+            {
+                detalle = actualizado;
+            }
+        }
+        catch (Exception)
+        {
+            detalleError = "No se pudo actualizar el detalle del evento.";
+        }
+        finally
+        {
+            cargandoDetalle = false;
+        }
+    }
+
+    private void CerrarDetalle()
+    {
+        detalle = null;
+        detalleError = null;
+    }
+
+    private void DetenerPropagacion()
+    {
+        // El clic dentro de la ventana no debe cerrarla (solo el fondo lo hace).
+    }
+
+    private string ExportUrl
+    {
+        get
+        {
+            var parametros = new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(filtro.Texto))
+            {
+                parametros.Add($"texto={Uri.EscapeDataString(filtro.Texto.Trim())}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(filtro.UsuarioId))
+            {
+                parametros.Add($"usuarioId={Uri.EscapeDataString(filtro.UsuarioId)}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(filtro.Accion))
+            {
+                parametros.Add($"accion={Uri.EscapeDataString(filtro.Accion)}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(filtro.Modulo))
+            {
+                parametros.Add($"modulo={Uri.EscapeDataString(filtro.Modulo)}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(filtro.Entidad))
+            {
+                parametros.Add($"entidad={Uri.EscapeDataString(filtro.Entidad)}");
+            }
+
+            if (filtro.Desde.HasValue)
+            {
+                parametros.Add($"desde={filtro.Desde.Value:yyyy-MM-dd}");
+            }
+
+            if (filtro.Hasta.HasValue)
+            {
+                parametros.Add($"hasta={filtro.Hasta.Value:yyyy-MM-dd}");
+            }
+
+            return parametros.Count == 0
+                ? "/auditoria/exportar"
+                : $"/auditoria/exportar?{string.Join("&", parametros)}";
+        }
+    }
+
+    private static string NivelClase(NivelAuditoria nivel) => nivel switch
+    {
+        NivelAuditoria.Exito => "badge-exito",
+        NivelAuditoria.Informativo => "badge-informativo",
+        NivelAuditoria.Advertencia => "badge-advertencia",
+        NivelAuditoria.Critico => "badge-critico",
+        _ => "badge-neutro"
+    };
+
+    private static string FormatearFechaHora(DateTime fecha) =>
+        fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss", Cultura);
+
+    private static string FormatearFechaLarga(DateTime fecha) =>
+        fecha.ToLocalTime().ToString("dddd, dd 'de' MMMM 'de' yyyy · HH:mm:ss", Cultura);
+
+    private static string FormatRegistros(int cantidad) =>
+        cantidad == 1 ? "1 registro" : $"{cantidad.ToString("N0", Cultura)} registros";
+
+    private static string GetInitials(string? nombre)
+    {
+        if (string.IsNullOrWhiteSpace(nombre))
+        {
+            return "US";
+        }
+
+        var partes = nombre.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return string.Concat(partes.Take(2).Select(parte => char.ToUpperInvariant(parte[0])));
+    }
+}

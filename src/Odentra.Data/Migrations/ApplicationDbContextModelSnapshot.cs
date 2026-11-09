@@ -517,8 +517,16 @@ namespace Odentra.Data.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("AgenteUsuario")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
                     b.Property<string>("Descripcion")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DireccionIp")
+                        .HasMaxLength(45)
+                        .HasColumnType("nvarchar(45)");
 
                     b.Property<string>("Entidad")
                         .IsRequired()
@@ -543,6 +551,10 @@ namespace Odentra.Data.Migrations
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("FechaHora");
+
+                    b.HasIndex("Modulo", "Accion");
 
                     b.HasIndex("UsuarioId", "FechaHora");
 
