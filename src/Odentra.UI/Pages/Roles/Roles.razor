@@ -12,75 +12,121 @@
             <h1>Roles y permisos</h1>
             <p>Define qué acciones puede realizar cada rol dentro del sistema.</p>
         </div>
+
+        <div class="header-actions">
+            @if (!string.IsNullOrWhiteSpace(successMessage))
+            {
+                <span class="save-hint">✓ @successMessage</span>
+            }
+
+            <AuthorizeView Policy="Roles.Editar">
+                <Authorized>
+                    <button type="button" class="primary-action" @onclick="SavePermissionsAsync"
+                            disabled="@(saving || selectedRole is null)">
+                        @(saving ? "Guardando..." : "Guardar cambios")
+                    </button>
+                </Authorized>
+            </AuthorizeView>
+        </div>
     </header>
 
     @if (!string.IsNullOrWhiteSpace(errorMessage))
     {
-        <div class="feedback error">@errorMessage</div>
-    }
-    @if (!string.IsNullOrWhiteSpace(successMessage))
-    {
-        <div class="feedback success">@successMessage</div>
+        <div class="feedback error" role="alert">@errorMessage</div>
     }
 
     @if (loading)
     {
         <div class="roles-state">Cargando roles y permisos...</div>
     }
+    else if (roles.Count == 0)
+    {
+        <div class="roles-state">No hay roles configurados.</div>
+    }
     else
     {
-        <div class="roles-layout">
-            <aside class="role-list" aria-label="Roles disponibles">
-                <div class="role-list-heading"><strong>Roles del sistema</strong><span>@roles.Count</span></div>
-                @foreach (var role in roles)
-                {
-                    <button class="role-list-item @(selectedRole?.Id == role.Id ? "selected" : "")" @onclick="() => SelectRole(role)">
-                        <span class="role-list-icon">@GetInitials(role.Nombre)</span>
-                        <span><strong>@role.Nombre</strong><small>@role.Permisos.Count permiso(s)</small></span>
-                        <span class="role-chevron">›</span>
-                    </button>
-                }
-            </aside>
-
-            @if (selectedRole is not null)
+        <div class="role-tabs" role="tablist" aria-label="Roles disponibles">
+            @foreach (var role in roles)
             {
-                <section class="permissions-panel">
-                    <div class="permissions-heading">
-                        <div><span class="page-eyebrow">Configuración del rol</span><h2>@selectedRole.Nombre</h2><p>@(selectedRole.Descripcion ?? "Permisos efectivos para este rol.")</p></div>
-                        <AuthorizeView Policy="Roles.Editar">
-                            <Authorized><button class="primary-action" @onclick="SavePermissionsAsync" disabled="@saving">@(saving ? "Guardando..." : "Guardar permisos")</button></Authorized>
-                        </AuthorizeView>
-                    </div>
-                    @if (selectedRole.Nombre == RolesOdentra.Administrador)
-                    {
-                        <p class="permission-hint">El rol <strong>@RolesOdentra.Administrador</strong> conserva siempre <strong>Roles.Ver</strong> y <strong>Roles.Editar</strong>, para que el sistema nunca quede sin acceso a esta pantalla.</p>
-                    }
-                    <div class="permission-groups">
-                        @foreach (var group in permissions.GroupBy(permission => permission.Modulo).OrderBy(group => group.Key))
-                        {
-                            <div class="permission-group">
-                                <div class="group-heading"><h3>@group.Key</h3><span>@group.Count() permiso(s)</span></div>
-                                <div class="permission-grid">
-                                    @foreach (var permission in group)
-                                    {
-                                        <label class="permission-option">
-                                            <input type="checkbox" checked="@selectedPermissions.Contains(permission.Nombre)" disabled="@IsMandatory(permission.Nombre)" @onchange="eventArgs => TogglePermission(permission.Nombre, eventArgs.Value is true)" />
-                                            <span><strong>@permission.Nombre</strong><small>@permission.Descripcion</small></span>
-                                        </label>
-                                    }
-                                </div>
-                            </div>
-                        }
-                    </div>
-                </section>
+                <button type="button" role="tab"
+                        aria-selected="@(selectedRole?.Id == role.Id ? "true" : "false")"
+                        class="role-tab @(selectedRole?.Id == role.Id ? "active" : "")"
+                        @onclick="() => SelectRole(role)">
+                    <span class="role-badge @GetRoleBadgeClass(role.Nombre)">@role.Nombre</span>
+                </button>
             }
         </div>
+
+        @if (selectedRole is not null)
+        {
+            <section class="permissions-card">
+                <div class="permissions-card-header">
+                    <div>
+                        <h3>
+                            Permisos del rol:
+                            <span class="role-badge @GetRoleBadgeClass(selectedRole.Nombre)">@selectedRole.Nombre</span>
+                        </h3>
+                        @if (IsAdmin)
+                        {
+                            <p>El rol Administrador tiene acceso completo al sistema.</p>
+                        }
+                    </div>
+                </div>
+
+                <div class="permissions-table-wrap">
+                    <table class="permissions-table">
+                        <thead>
+                            <tr>
+                                <th class="module-col">Módulo</th>
+                                @foreach (var action in actions)
+                                {
+                                    <th class="perm-col">@action</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (var i = 0; i < modules.Count; i++)
+                            {
+                                var module = modules[i];
+                                <tr class="@(i % 2 == 0 ? "row-even" : "row-odd")">
+                                    <td class="module-cell">@module</td>
+                                    @foreach (var action in actions)
+                                    {
+                                        var permissionName = GetPermissionName(module, action);
+                                        <td class="perm-cell">
+                                            @if (permissionName is null)
+                                            {
+                                                <span class="perm-empty">—</span>
+                                            }
+                                            else
+                                            {
+                                                <input type="checkbox"
+                                                       class="perm-check"
+                                                       checked="@selectedPermissions.Contains(permissionName)"
+                                                       disabled="@(IsAdmin || IsMandatory(permissionName))"
+                                                       @onchange="eventArgs => TogglePermission(permissionName, eventArgs.Value is true)" />
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
     }
 </div>
 
 @code {
+    private static readonly string[] OrdenAcciones =
+        ["Ver", "Crear", "Editar", "Desactivar", "Cancelar", "Atender", "Registrar", "Exportar"];
+
     private List<RolePermissionDto> roles = [];
     private List<PermissionDefinition> permissions = [];
+    private List<string> modules = [];
+    private List<string> actions = [];
+    private Dictionary<(string Modulo, string Accion), string> permissionNames = [];
     private RolePermissionDto? selectedRole;
     private HashSet<string> selectedPermissions = new(StringComparer.Ordinal);
     private bool loading = true;
@@ -88,12 +134,15 @@
     private string? errorMessage;
     private string? successMessage;
 
+    private bool IsAdmin => selectedRole?.Nombre == RolesOdentra.Administrador;
+
     protected override async Task OnInitializedAsync()
     {
         try
         {
             roles = (await RolService.GetRolesAsync()).ToList();
             permissions = (await RolService.GetPermissionsAsync()).ToList();
+            BuildPermissionMatrix();
             SelectRole(roles.FirstOrDefault());
         }
         catch (Exception)
@@ -106,6 +155,25 @@
         }
     }
 
+    private void BuildPermissionMatrix()
+    {
+        modules = permissions
+            .Select(permission => permission.Modulo)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        actions = permissions
+            .Select(permission => ObtenerAccion(permission.Nombre))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(IndiceAccion)
+            .ThenBy(action => action, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        permissionNames = permissions.ToDictionary(
+            permission => (permission.Modulo, ObtenerAccion(permission.Nombre)),
+            permission => permission.Nombre);
+    }
+
     private void SelectRole(RolePermissionDto? role)
     {
         selectedRole = role;
@@ -113,6 +181,7 @@
             ? new HashSet<string>(StringComparer.Ordinal)
             : role.Permisos.ToHashSet(StringComparer.Ordinal);
         successMessage = null;
+        errorMessage = null;
     }
 
     private void TogglePermission(string permission, bool selected)
@@ -127,6 +196,9 @@
         selectedRole?.Nombre == RolesOdentra.Administrador
         && (permission == "Roles.Ver" || permission == "Roles.Editar");
 
+    private string? GetPermissionName(string module, string action) =>
+        permissionNames.TryGetValue((module, action), out var permission) ? permission : null;
+
     private async Task SavePermissionsAsync()
     {
         if (selectedRole is null) return;
@@ -135,10 +207,12 @@
         successMessage = null;
         try
         {
-            await RolService.UpdatePermissionsAsync(selectedRole.Id, selectedPermissions);
+            var roleId = selectedRole.Id;
+            await RolService.UpdatePermissionsAsync(roleId, selectedPermissions);
             roles = (await RolService.GetRolesAsync()).ToList();
-            selectedRole = roles.First(role => role.Id == selectedRole.Id);
-            successMessage = "Los permisos del rol fueron actualizados y se aplican de inmediato.";
+            selectedRole = roles.First(role => role.Id == roleId);
+            selectedPermissions = selectedRole.Permisos.ToHashSet(StringComparer.Ordinal);
+            successMessage = "Cambios guardados";
         }
         catch (InvalidOperationException exception)
         {
@@ -150,6 +224,25 @@
         }
     }
 
-    private static string GetInitials(string name) =>
-        string.Concat(name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(part => char.ToUpperInvariant(part[0])));
+    private static string ObtenerAccion(string permissionName)
+    {
+        var separator = permissionName.IndexOf('.');
+        return separator >= 0 && separator < permissionName.Length - 1
+            ? permissionName[(separator + 1)..]
+            : permissionName;
+    }
+
+    private static int IndiceAccion(string action)
+    {
+        var index = Array.IndexOf(OrdenAcciones, action);
+        return index >= 0 ? index : int.MaxValue;
+    }
+
+    private static string GetRoleBadgeClass(string roleName) => roleName switch
+    {
+        RolesOdentra.Administrador => "role-badge-danger",
+        RolesOdentra.Recepcionista => "role-badge-success",
+        RolesOdentra.Odontologo => "role-badge-info",
+        _ => "role-badge-neutral"
+    };
 }
