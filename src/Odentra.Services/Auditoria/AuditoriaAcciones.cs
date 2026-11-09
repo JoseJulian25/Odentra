@@ -24,8 +24,8 @@ public static class AuditoriaAcciones
     public const string InicioSesionFallido = "Falló inicio de sesión";
 
     /// <summary>
-    /// Orden preferido para el filtro de acciones. Las acciones nuevas que
-    /// aparezcan en la base se agregan al final automáticamente.
+    /// Acciones que el sistema realmente registra, en el orden preferido del
+    /// filtro. Es la única fuente del selector de acciones.
     /// </summary>
     public static readonly IReadOnlyList<string> Conocidas =
     [
@@ -37,10 +37,7 @@ public static class AuditoriaAcciones
         "Cambió",
         "Activó",
         "Desactivó",
-        "Canceló",
-        "Cerró",
         "Restableció",
-        "Eliminó",
         InicioSesion,
         CierreSesion,
         InicioSesionFallido
@@ -49,9 +46,9 @@ public static class AuditoriaAcciones
     public static NivelAuditoria ObtenerNivel(string? accion) => accion switch
     {
         "Agregó" or "Creó" or "Agendó" or "Registró" or "Activó" => NivelAuditoria.Exito,
-        "Modificó" or "Cambió" or "Cerró" => NivelAuditoria.Informativo,
-        "Desactivó" or "Canceló" or "Restableció" => NivelAuditoria.Advertencia,
-        "Eliminó" or InicioSesionFallido => NivelAuditoria.Critico,
+        "Modificó" or "Cambió" => NivelAuditoria.Informativo,
+        "Desactivó" or "Restableció" => NivelAuditoria.Advertencia,
+        InicioSesionFallido => NivelAuditoria.Critico,
         InicioSesion or CierreSesion => NivelAuditoria.Neutro,
         _ => NivelAuditoria.Informativo
     };

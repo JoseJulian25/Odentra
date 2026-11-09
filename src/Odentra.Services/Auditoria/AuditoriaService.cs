@@ -119,7 +119,6 @@ public sealed class AuditoriaService(
         CancellationToken cancellationToken = default)
     {
         var usuarios = await repository.GetUsuariosConActividadAsync(cancellationToken);
-        var acciones = await repository.GetAccionesAsync(cancellationToken);
         var modulos = await repository.GetModulosAsync(cancellationToken);
         var entidades = await repository.GetEntidadesAsync(cancellationToken);
 
@@ -129,7 +128,6 @@ public sealed class AuditoriaService(
             .ToList();
 
         var accionesDto = AuditoriaAcciones.Conocidas
-            .Concat(acciones.Except(AuditoriaAcciones.Conocidas, StringComparer.Ordinal))
             .Select(accion => new AuditoriaOpcionDto(accion, accion))
             .ToList();
 
@@ -191,9 +189,6 @@ public sealed class AuditoriaService(
             throw new InvalidOperationException("La fecha inicial no puede ser posterior a la fecha final.");
         }
 
-        // La pantalla elige fechas locales; la base guarda UTC. El límite
-        // superior se lleva al inicio del día siguiente para incluir el día
-        // completo elegido por el usuario.
         var desdeUtc = filtro.Desde?.Date.ToUniversalTime();
         var hastaUtc = filtro.Hasta?.Date.AddDays(1).ToUniversalTime();
 
