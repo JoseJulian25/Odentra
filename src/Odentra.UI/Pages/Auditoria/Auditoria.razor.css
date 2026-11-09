@@ -1,8 +1,3 @@
-/* ============================================================================
-   Auditoría · estilos de la página (/auditoria)
-   Misma línea visual que el resto del panel: tarjetas blancas, bordes suaves,
-   acento azul y tipografía compacta. Todo el módulo es de solo lectura.
-   ============================================================================ */
 
 .audit-page {
     max-width: 1500px;
@@ -40,32 +35,6 @@
     margin: 5px 0 0;
     color: #64748b;
     font-size: 13px;
-}
-
-.audit-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.readonly-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 10px;
-    border: 1px solid #e2e8f0;
-    border-radius: 999px;
-    background: #f8fafc;
-    color: #64748b;
-    font-size: 10px;
-    font-weight: 650;
-    letter-spacing: .03em;
-    text-transform: uppercase;
-}
-
-.readonly-badge svg {
-    color: #94a3b8;
 }
 
 /* ------------------------------ Botones base ------------------------------ */
@@ -113,21 +82,9 @@
     background: #f1f5f9;
 }
 
-.secondary-action:disabled,
-.export-action.is-disabled {
+.secondary-action:disabled {
     opacity: .55;
     cursor: not-allowed;
-}
-
-.export-action {
-    color: #1d4ed8;
-    border-color: #bfdbfe;
-    background: #eff6ff;
-}
-
-.export-action:hover {
-    border-color: #93c5fd;
-    background: #dbeafe;
 }
 
 /* ----------------------------- Tarjetas resumen --------------------------- */
@@ -894,10 +851,6 @@
         gap: 14px;
     }
 
-    .audit-header-actions {
-        align-items: stretch;
-    }
-
     .stats-grid,
     .filter-panel {
         grid-template-columns: 1fr;
@@ -908,8 +861,7 @@
     }
 
     .primary-action,
-    .secondary-action,
-    .export-action {
+    .secondary-action {
         width: 100%;
     }
 

@@ -1,12 +1,10 @@
 using System.Security.Claims;
-using System.Text;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Identity;
 using Odentra.UI.Components;
 using Odentra.Data.Entities;
 using Odentra.Services;
 using Odentra.Services.Auditoria;
-using Odentra.Services.Auditoria.DTOs;
 using Odentra.Services.Autenticacion;
 using Odentra.Services.Odontograma;
 
@@ -153,37 +151,6 @@ app.MapGet("/account/logout", async (
     return Results.Redirect("/login");
 });
 
-app.MapGet("/auditoria/exportar", async (
-    string? texto,
-    string? usuarioId,
-    string? accion,
-    string? modulo,
-    string? entidad,
-    DateTime? desde,
-    DateTime? hasta,
-    IAuditoriaService auditoriaService) =>
-{
-    var filtro = new AuditoriaFiltroDto
-    {
-        Texto = texto,
-        UsuarioId = usuarioId,
-        Accion = accion,
-        Modulo = modulo,
-        Entidad = entidad,
-        Desde = desde,
-        Hasta = hasta
-    };
-
-    var registros = await auditoriaService.GetParaExportarAsync(filtro);
-    var contenido = ConstruirCsv(registros);
-    var nombreArchivo = $"auditoria-{DateTime.Now:yyyyMMdd-HHmm}.csv";
-
-    return Results.File(
-        new UTF8Encoding(encoderShouldEmitUTF8Identifier: true).GetBytes(contenido),
-        "text/csv; charset=utf-8",
-        nombreArchivo);
-}).RequireAuthorization("Auditoria.Ver");
-
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
@@ -249,32 +216,3 @@ static async Task RegistrarEventoAsync(
     }
 }
 
-static string ConstruirCsv(IReadOnlyList<AuditoriaRegistroDto> registros)
-{
-    var builder = new StringBuilder();
-    builder.AppendLine("Fecha y hora,Usuario,Correo,Acción,Módulo,Entidad,ID entidad,Descripción,Dirección IP,Agente de usuario");
-
-    foreach (var registro in registros)
-    {
-        builder
-            .Append(EscaparCsv(registro.FechaHora.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"))).Append(',')
-            .Append(EscaparCsv(registro.Usuario)).Append(',')
-            .Append(EscaparCsv(registro.UsuarioEmail)).Append(',')
-            .Append(EscaparCsv(registro.Accion)).Append(',')
-            .Append(EscaparCsv(registro.Modulo)).Append(',')
-            .Append(EscaparCsv(registro.EntidadLegible)).Append(',')
-            .Append(EscaparCsv(registro.EntidadId?.ToString())).Append(',')
-            .Append(EscaparCsv(registro.Descripcion)).Append(',')
-            .Append(EscaparCsv(registro.DireccionIp)).Append(',')
-            .Append(EscaparCsv(registro.AgenteUsuario))
-            .AppendLine();
-    }
-
-    return builder.ToString();
-}
-
-static string EscaparCsv(string? valor)
-{
-    var texto = valor ?? string.Empty;
-    return $"\"{texto.Replace("\"", "\"\"")}\"";
-}

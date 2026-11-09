@@ -5,24 +5,6 @@
 @using Odentra.Services.Auditoria.DTOs
 @inject IAuditoriaService AuditoriaService
 
-@* ============================================================================
-   PÁGINA: Auditoría        Ruta: /auditoria
-
-   ¿Qué hace esta pantalla?
-     Muestra, en modo solo lectura, las operaciones relevantes registradas por
-     el sistema: quién las hizo, cuándo, en qué módulo, sobre qué entidad y con
-     qué descripción. Arriba hay tarjetas de resumen, luego los filtros y al
-     final la tabla paginada con el detalle de cada evento.
-
-   ¿Cómo se lee este archivo?
-     - Markup: encabezado, tarjetas, panel de filtros, tabla y ventana de detalle.
-     - @code (al final):
-         OnInitializedAsync   -> cargar filtros y primera página
-         BuscarAsync          -> consultar el servicio con los filtros actuales
-         VerDetalleAsync      -> abrir la ventana de detalle de un evento
-         Ayudantes            -> fechas, etiquetas, iniciales y URL de exportación
-   ============================================================================ *@
-
 <PageTitle>Auditoría · Odentra</PageTitle>
 
 <div class="audit-page">
@@ -30,44 +12,7 @@
         <div>
             <span class="page-eyebrow">Administración</span>
             <h1>Auditoría</h1>
-            <p>Registro de acciones del sistema — solo lectura.</p>
-        </div>
-
-        <div class="audit-header-actions">
-            <span class="readonly-badge">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <rect x="3" y="11" width="18" height="11" rx="2"></rect>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                </svg>
-                Solo lectura
-            </span>
-
-            @if (totalRegistros > 0)
-            {
-                <a class="secondary-action export-action" href="@ExportUrl"
-                   title="Descargar los registros filtrados en formato CSV">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                        <polyline points="7 10 12 15 17 10"></polyline>
-                        <line x1="12" y1="15" x2="12" y2="3"></line>
-                    </svg>
-                    Exportar CSV
-                </a>
-            }
-            else
-            {
-                <span class="secondary-action export-action is-disabled" aria-disabled="true">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                        <polyline points="7 10 12 15 17 10"></polyline>
-                        <line x1="12" y1="15" x2="12" y2="3"></line>
-                    </svg>
-                    Exportar CSV
-                </span>
-            }
+            <p>Registro de acciones del sistema.</p>
         </div>
     </header>
 
@@ -583,53 +528,6 @@
     private void DetenerPropagacion()
     {
         // El clic dentro de la ventana no debe cerrarla (solo el fondo lo hace).
-    }
-
-    private string ExportUrl
-    {
-        get
-        {
-            var parametros = new List<string>();
-
-            if (!string.IsNullOrWhiteSpace(filtro.Texto))
-            {
-                parametros.Add($"texto={Uri.EscapeDataString(filtro.Texto.Trim())}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(filtro.UsuarioId))
-            {
-                parametros.Add($"usuarioId={Uri.EscapeDataString(filtro.UsuarioId)}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(filtro.Accion))
-            {
-                parametros.Add($"accion={Uri.EscapeDataString(filtro.Accion)}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(filtro.Modulo))
-            {
-                parametros.Add($"modulo={Uri.EscapeDataString(filtro.Modulo)}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(filtro.Entidad))
-            {
-                parametros.Add($"entidad={Uri.EscapeDataString(filtro.Entidad)}");
-            }
-
-            if (filtro.Desde.HasValue)
-            {
-                parametros.Add($"desde={filtro.Desde.Value:yyyy-MM-dd}");
-            }
-
-            if (filtro.Hasta.HasValue)
-            {
-                parametros.Add($"hasta={filtro.Hasta.Value:yyyy-MM-dd}");
-            }
-
-            return parametros.Count == 0
-                ? "/auditoria/exportar"
-                : $"/auditoria/exportar?{string.Join("&", parametros)}";
-        }
     }
 
     private static string NivelClase(NivelAuditoria nivel) => nivel switch

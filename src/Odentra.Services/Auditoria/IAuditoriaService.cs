@@ -47,9 +47,4 @@ public interface IAuditoriaService
 
     Task<AuditoriaResumenDto> GetResumenAsync(
         CancellationToken cancellationToken = default);
-
-    Task<IReadOnlyList<AuditoriaRegistroDto>> GetParaExportarAsync(
-        AuditoriaFiltroDto filtro,
-        int maximo = 10000,
-        CancellationToken cancellationToken = default);
 }

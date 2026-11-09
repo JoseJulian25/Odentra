@@ -9,8 +9,6 @@ public sealed class AuditoriaService(
     IAuditoriaRepository repository,
     ICurrentUserService currentUserService) : IAuditoriaService
 {
-    private const int MaximoRegistrosExportacion = 50000;
-
     public async Task RegistrarAsync(
         string accion,
         string modulo,
@@ -167,18 +165,6 @@ public sealed class AuditoriaService(
             resumen.UsuariosDistintos,
             resumen.ModuloMasActivo,
             resumen.EventosModuloMasActivo);
-    }
-
-    public async Task<IReadOnlyList<AuditoriaRegistroDto>> GetParaExportarAsync(
-        AuditoriaFiltroDto filtro,
-        int maximo = 10000,
-        CancellationToken cancellationToken = default)
-    {
-        var query = ConstruirQuery(filtro);
-        var limite = Math.Clamp(maximo, 1, MaximoRegistrosExportacion);
-
-        var data = await repository.SearchAsync(query, 1, limite, cancellationToken);
-        return data.Items.Select(ToDto).ToList();
     }
 
     private static AuditoriaQuery ConstruirQuery(AuditoriaFiltroDto filtro)
