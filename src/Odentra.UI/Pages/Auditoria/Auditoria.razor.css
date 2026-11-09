@@ -92,16 +92,16 @@
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
-    margin-bottom: 16px;
+    gap: 10px;
+    margin-bottom: 12px;
 }
 
 .stat-card {
     display: flex;
-    min-height: 108px;
+    min-height: 76px;
     flex-direction: column;
     justify-content: center;
-    padding: 16px;
+    padding: 9px 14px;
     border: 1px solid #dbe4ee;
     border-radius: 6px;
     background: #fff;
@@ -114,16 +114,17 @@
 }
 
 .stat-card strong {
-    margin: 4px 0;
+    margin: 1px 0;
     color: #0f172a;
-    font-size: 24px;
-    line-height: 1.2;
+    font-size: 20px;
+    line-height: 1.15;
     font-variant-numeric: tabular-nums;
 }
 
 .stat-card small {
     color: #94a3b8;
-    font-size: 11px;
+    font-size: 10px;
+    line-height: 1.2;
 }
 
 .stat-total {
@@ -307,7 +308,7 @@
 }
 
 .table-scroll {
-    max-height: 460px;
+    max-height: clamp(480px, calc(100vh - 340px), 780px);
     overflow: auto;
     transition: opacity 140ms ease;
 }
@@ -338,7 +339,7 @@
 .audit-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12px;
+    font-size: 13px;
 }
 
 .audit-table thead {
@@ -362,7 +363,7 @@
 }
 
 .audit-table td {
-    padding: 10px 14px;
+    padding: 11px 14px;
     border-bottom: 1px solid #f1f5f9;
     color: #64748b;
     vertical-align: middle;
@@ -384,7 +385,7 @@
 
 .date-cell {
     color: #475569 !important;
-    font-size: 11px;
+    font-size: 12px;
 }
 
 /* --------------------------------- Usuario -------------------------------- */
