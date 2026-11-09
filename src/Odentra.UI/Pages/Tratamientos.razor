@@ -3,7 +3,9 @@
 @using Microsoft.EntityFrameworkCore
 @using Odentra.Data
 @using Odentra.Data.Entities
+@using Odentra.Services.Auditoria
 @inject ApplicationDbContext DbContext
+@inject IAuditoriaService AuditoriaService
 
 <PageTitle>Tratamientos - Odentra</PageTitle>
 
@@ -764,6 +766,7 @@
     private Tratamiento tratamientoEditando = new();
     private TratamientoRealizado nuevoRealizado = new();
     private string piezaDentalSeleccionadaStr = "";
+    private EstadoRegistro? estadoOriginalTratamiento;
 
     protected override async Task OnInitializedAsync()
     {
@@ -871,6 +874,7 @@
     private void AbrirModalNuevoCatalogo()
     {
         tratamientoEditando = new Tratamiento { Estado = EstadoRegistro.Activo, PrecioBase = 0 };
+        estadoOriginalTratamiento = null;
         errorModal = null;
         mostrarModalCatalogo = true;
     }
@@ -885,6 +889,7 @@
             PrecioBase = item.PrecioBase,
             Estado = item.Estado
         };
+        estadoOriginalTratamiento = item.Estado;
         errorModal = null;
         mostrarModalCatalogo = true;
     }
@@ -905,7 +910,9 @@
 
         try
         {
-            if (tratamientoEditando.Id == 0)
+            var esNuevo = tratamientoEditando.Id == 0;
+
+            if (esNuevo)
             {
                 DbContext.Tratamientos.Add(tratamientoEditando);
             }
@@ -922,6 +929,17 @@
             }
 
             await DbContext.SaveChangesAsync();
+
+            var accion = esNuevo ? "Agregó" : "Modificó";
+            if (!esNuevo && estadoOriginalTratamiento != tratamientoEditando.Estado)
+            {
+                accion = tratamientoEditando.Estado == EstadoRegistro.Activo ? "Activó" : "Desactivó";
+            }
+
+            await AuditoriaService.RegistrarAsync(
+                accion, "Tratamientos", nameof(Tratamiento), tratamientoEditando.Id,
+                $"{accion} el tratamiento: {tratamientoEditando.Nombre} — RD${tratamientoEditando.PrecioBase:N2}");
+
             mostrarModalCatalogo = false;
             await CargarDatos();
         }
@@ -987,6 +1005,18 @@
         {
             DbContext.TratamientosRealizados.Add(nuevoRealizado);
             await DbContext.SaveChangesAsync();
+
+            var paciente = pacientes.FirstOrDefault(p => p.Id == nuevoRealizado.PacienteId);
+            var nombrePaciente = paciente is not null
+                ? $"{paciente.Nombres} {paciente.Apellidos}"
+                : $"Paciente #{nuevoRealizado.PacienteId}";
+            var nombreTratamiento = listaTratamientos.FirstOrDefault(t => t.Id == nuevoRealizado.TratamientoId)?.Nombre
+                ?? $"Tratamiento #{nuevoRealizado.TratamientoId}";
+
+            await AuditoriaService.RegistrarAsync(
+                "Registró", "Tratamientos", nameof(TratamientoRealizado), nuevoRealizado.Id,
+                $"Registró el tratamiento {nombreTratamiento} para {nombrePaciente} — RD${nuevoRealizado.Precio:N2} ({nuevoRealizado.Estado})");
+
             mostrarModalRealizado = false;
             await CargarDatos();
         }
