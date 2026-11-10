@@ -16,6 +16,8 @@ using Odentra.Services.Pagos;
 using Odentra.Services.HistoriasClinicas;
 using Odentra.Services.Usuarios;
 using Odentra.Services.Auditoria;
+using Odentra.Services.Reportes;
+using Odentra.Services.Tratamientos;
 
 namespace Odentra.Services;
 
@@ -99,10 +101,14 @@ public static class DependencyInjection
         services.AddScoped<IAuditoriaRepository, AuditoriaRepository>();
         services.AddScoped<IAuditoriaService, AuditoriaService>();
         services.AddScoped<ITratamientoRepository, TratamientoRepository>();
+        services.AddScoped<ITratamientoService, TratamientoService>();
         services.AddScoped<IPagoRepository, PagoRepository>();
         services.AddScoped<IPagoService, PagoService>();
         services.AddScoped<IHistoriaClinicaRepository, HistoriaClinicaRepository>();
         services.AddScoped<IHistoriaClinicaService, HistoriaClinicaService>();
+        services.AddScoped<IReporteRepository, ReporteRepository>();
+        services.AddScoped<IReporteService, ReporteService>();
+        services.AddScoped<IReportePdfService, ReportePdfService>();
 
         return services;
     }

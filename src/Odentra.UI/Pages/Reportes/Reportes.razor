@@ -1,0 +1,720 @@
+@page "/reportes"
+@attribute [Authorize(Policy = "Reportes.Ver")]
+@using System.Globalization
+@using Odentra.Data.Entities
+@using Odentra.Services.Reportes
+@using Odentra.Services.Reportes.DTOs
+@inject IReporteService ReporteService
+
+@* ============================================================================
+   PÁGINA: Reportes        Ruta: /reportes
+
+   ¿Qué hace esta pantalla?
+     Es el centro de análisis de Odentra. A la izquierda está la biblioteca de
+     reportes (citas, pacientes, tratamientos y pagos); a la derecha se configuran
+     los filtros y se muestra un documento con:
+       - Metadatos del reporte (período, filtros aplicados, fecha y registros).
+       - Tarjetas KPI con los números principales.
+       - Distribución por estado o método de pago.
+       - Tabla de detalle con totales.
+     El botón "Exportar PDF" descarga el mismo documento en PDF.
+
+   ¿Cómo se lee este archivo?
+     - Markup: encabezado, biblioteca, filtros, documento, KPI, gráfico y tabla.
+     - @code (al final):
+         OnInitializedAsync -> cargar los odontólogos del filtro
+         Seleccionar       -> cambiar de reporte y limpiar el resultado
+         GenerarAsync      -> consultar el servicio y guardar el filtro aplicado
+         AplicarPreset     -> rangos de fecha rápidos
+         PdfUrl            -> URL del endpoint que genera el PDF
+   ============================================================================ *@
+
+<PageTitle>Reportes · Odentra</PageTitle>
+
+<div class="reports-page">
+    <header class="page-head">
+        <div class="page-head-copy">
+            <span class="eyebrow">Análisis</span>
+            <h1>Centro de reportes</h1>
+            <p>Genera, analiza y exporta la información administrativa y clínica de la clínica.</p>
+        </div>
+
+        <div class="page-head-actions">
+            @if (resultado is not null)
+            {
+                <a class="btn btn-pdf" href="@PdfUrl" target="_blank" rel="noopener">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 3v12m0 0 4-4m-4 4-4-4" />
+                        <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                    </svg>
+                    Exportar PDF
+                </a>
+            }
+            <button type="button" class="btn btn-ghost"
+                    @onclick="Limpiar"
+                    disabled="@(seleccionado is null && resultado is null)">
+                Limpiar
+            </button>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="feedback error" role="alert">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 8v5m0 3h.01" />
+            </svg>
+            <span>@errorMessage</span>
+        </div>
+    }
+
+    <div class="reports-layout">
+        <aside class="catalog" aria-label="Biblioteca de reportes">
+            <div class="catalog-head">
+                <span class="catalog-eyebrow">Biblioteca</span>
+                <h2>Tipos de reporte</h2>
+            </div>
+
+            <div class="catalog-list">
+                @foreach (var tipo in Tipos)
+                {
+                    <button type="button"
+                            class="catalog-item @(seleccionado == tipo.Tipo ? "is-active" : "")"
+                            aria-pressed="@(seleccionado == tipo.Tipo ? "true" : "false")"
+                            @onclick="() => Seleccionar(tipo.Tipo)">
+                        <span class="catalog-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                                 stroke-linecap="round" stroke-linejoin="round">
+                                <path d="@Icono(tipo.Icono)" />
+                            </svg>
+                        </span>
+                        <span class="catalog-copy">
+                            <strong>@tipo.Titulo</strong>
+                            <small>@tipo.Descripcion</small>
+                        </span>
+                        <span class="catalog-arrow" aria-hidden="true">›</span>
+                    </button>
+                }
+            </div>
+
+            <div class="catalog-note">
+                <span class="catalog-note-icon" aria-hidden="true">i</span>
+                <p>Los reportes son de solo lectura y se generan al momento con los datos actuales.</p>
+            </div>
+        </aside>
+
+        <div class="reports-main">
+            <section class="panel filter-panel" aria-label="Configuración del reporte">
+                <div class="panel-head">
+                    <div>
+                        <h2>Configuración del reporte</h2>
+                        <p>
+                            @(seleccionado is null
+                                ? "Selecciona un reporte de la biblioteca para empezar."
+                                : $"Ajusta el período y los filtros de {TituloSeleccionado.ToLowerInvariant()}.")
+                        </p>
+                    </div>
+                    @if (seleccionado is not null)
+                    {
+                        <span class="report-badge">@TituloSeleccionado</span>
+                    }
+                </div>
+
+                <div class="preset-row" role="group" aria-label="Rangos de fecha rápidos">
+                    @foreach (var preset in Presets)
+                    {
+                        <button type="button"
+                                class="preset @(EsPresetActivo(preset) ? "is-active" : "")"
+                                @onclick="() => AplicarPreset(preset)">
+                            @preset.Texto
+                        </button>
+                    }
+                </div>
+
+                <div class="filter-grid">
+                    <label class="field">
+                        <span>Fecha desde</span>
+                        <input type="date" @bind="desde" />
+                    </label>
+
+                    <label class="field">
+                        <span>Fecha hasta</span>
+                        <input type="date" @bind="hasta" />
+                    </label>
+
+                    @if (MuestraOdontologo)
+                    {
+                        <label class="field">
+                            <span>Odontólogo</span>
+                            <select @bind="odontologoId">
+                                <option value="">Todos</option>
+                                @foreach (var odontologo in odontologos)
+                                {
+                                    <option value="@odontologo.Id">@odontologo.Nombre</option>
+                                }
+                            </select>
+                        </label>
+                    }
+
+                    @if (MuestraEstado)
+                    {
+                        <label class="field">
+                            <span>@EtiquetaEstado</span>
+                            <select @bind="estado">
+                                <option value="">Todos</option>
+                                @foreach (var opcion in EstadosDisponibles)
+                                {
+                                    <option value="@opcion.Valor">@opcion.Texto</option>
+                                }
+                            </select>
+                        </label>
+                    }
+                </div>
+
+                <div class="filter-actions">
+                    <span class="filter-hint">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="9" />
+                            <path d="M12 11v5m0-8h.01" />
+                        </svg>
+                        El PDF exportado incluye estos mismos filtros.
+                    </span>
+
+                    <button type="button" class="btn btn-primary"
+                            @onclick="GenerarAsync"
+                            disabled="@(seleccionado is null || generando)">
+                        @if (generando)
+                        {
+                            <span class="spinner" aria-hidden="true"></span>
+                            <span>Generando...</span>
+                        }
+                        else
+                        {
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M3 3v18h18" />
+                                <path d="m7 15 4-4 3 3 5-6" />
+                            </svg>
+                            <span>Generar reporte</span>
+                        }
+                    </button>
+                </div>
+
+                @if (generando)
+                {
+                    <div class="progress-line" aria-hidden="true"><span></span></div>
+                }
+            </section>
+
+            @if (seleccionado is null)
+            {
+                <section class="empty-state">
+                    <span class="empty-illustration" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                             stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 3v18h18" />
+                            <path d="M7 15l4-4 3 3 5-6" />
+                        </svg>
+                    </span>
+                    <strong>Selecciona un tipo de reporte</strong>
+                    <span>Elige una de las tarjetas de la biblioteca para configurar los filtros y generar el análisis.</span>
+                </section>
+            }
+            else if (resultado is null && generando)
+            {
+                <div class="skeleton-stack" aria-hidden="true">
+                    <div class="skeleton skeleton-document"></div>
+                    <div class="skeleton-kpis">
+                        @for (var i = 0; i < 4; i++)
+                        {
+                            <div class="skeleton skeleton-kpi"></div>
+                        }
+                    </div>
+                    <div class="skeleton skeleton-table"></div>
+                </div>
+            }
+            else if (resultado is null)
+            {
+                <section class="empty-state">
+                    <span class="empty-illustration" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                             stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="4" y="3" width="16" height="18" rx="2" />
+                            <path d="M8 8h8M8 12h8M8 16h5" />
+                        </svg>
+                    </span>
+                    <strong>Todo listo para generar</strong>
+                    <span>Revisa el período y los filtros, y pulsa "Generar reporte" para ver el análisis.</span>
+                </section>
+            }
+            else
+            {
+                <div class="results-stack">
+                    <section class="document-card">
+                        <div class="document-top">
+                            <div class="document-title">
+                                <span class="document-eyebrow">Reporte generado</span>
+                                <h2>@resultado.Titulo</h2>
+                                <p>@resultado.Descripcion</p>
+                            </div>
+                            <div class="document-stamp">
+                                <span>Generado el</span>
+                                <strong>@resultado.GeneradoEn.ToString("dd/MM/yyyy · HH:mm", Cultura)</strong>
+                                <small>@FormatRegistros(resultado.Filas.Count)</small>
+                            </div>
+                        </div>
+
+                        <div class="filter-chips">
+                            @foreach (var filtro in resultado.Filtros)
+                            {
+                                <span class="filter-chip">
+                                    <em>@filtro.Etiqueta</em>
+                                    <strong>@filtro.Valor</strong>
+                                </span>
+                            }
+                        </div>
+                    </section>
+
+                    <section class="kpi-grid" aria-label="Resumen del reporte">
+                        @foreach (var tarjeta in resultado.Tarjetas)
+                        {
+                            <article class="kpi-card @tarjeta.Tono">
+                                <span class="kpi-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                                         stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="@Icono(tarjeta.Icono)" />
+                                    </svg>
+                                </span>
+                                <div class="kpi-copy">
+                                    <span>@tarjeta.Etiqueta</span>
+                                    <strong>@tarjeta.Valor</strong>
+                                </div>
+                            </article>
+                        }
+                    </section>
+
+                    <div class="insight-grid">
+                        <section class="panel chart-panel">
+                            <div class="panel-head compact">
+                                <div>
+                                    <h2>@resultado.TituloSeries</h2>
+                                    <p>Participación dentro del total filtrado.</p>
+                                </div>
+                                <span class="panel-count">@Categorias(resultado.Series.Count)</span>
+                            </div>
+
+                            @if (resultado.Series.Count == 0)
+                            {
+                                <div class="mini-empty">Sin datos para graficar en este período.</div>
+                            }
+                            else
+                            {
+                                <div class="bar-list">
+                                    @foreach (var serie in resultado.Series)
+                                    {
+                                        <div class="bar-row">
+                                            <span class="bar-label">@serie.Etiqueta</span>
+                                            <div class="bar-track">
+                                                <span class="bar-fill @serie.Tono" style="width:@Porcentaje(serie)%;"></span>
+                                            </div>
+                                            <span class="bar-value">
+                                                @serie.Cantidad
+                                                <small>@Porcentaje(serie)%</small>
+                                            </span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </section>
+
+                        <section class="panel summary-panel">
+                            <div class="panel-head compact">
+                                <div>
+                                    <h2>Resumen del período</h2>
+                                    <p>Datos clave del reporte actual.</p>
+                                </div>
+                            </div>
+
+                            <div class="summary-body">
+                                @if (resultado.TotalValor is not null)
+                                {
+                                    <div class="summary-highlight">
+                                        <span>@resultado.TotalEtiqueta</span>
+                                        <strong>@resultado.TotalValor</strong>
+                                    </div>
+                                }
+
+                                <dl class="summary-list">
+                                    <div>
+                                        <dt>Registros</dt>
+                                        <dd>@resultado.Filas.Count.ToString("N0", Cultura)</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Período</dt>
+                                        <dd>@resultado.Periodo</dd>
+                                    </div>
+                                    @if (SeriePrincipal is not null)
+                                    {
+                                        <div>
+                                            <dt>Categoría principal</dt>
+                                            <dd>@SeriePrincipal.Etiqueta · @Porcentaje(SeriePrincipal)%</dd>
+                                        </div>
+                                    }
+                                </dl>
+                            </div>
+                        </section>
+                    </div>
+
+                    <section class="panel table-panel">
+                        <div class="panel-head compact">
+                            <div>
+                                <h2>Detalle de resultados</h2>
+                                <p>Información filtrada del reporte seleccionado.</p>
+                            </div>
+                            <span class="panel-count">@FormatRegistros(resultado.Filas.Count)</span>
+                        </div>
+
+                        @if (resultado.Filas.Count == 0)
+                        {
+                            <div class="mini-empty table-empty">
+                                <strong>No hay datos para los filtros seleccionados</strong>
+                                <span>Prueba ampliando el rango de fechas o cambiando los filtros.</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="table-wrap">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            @foreach (var columna in resultado.Columnas)
+                                            {
+                                                <th class="@ClaseColumna(columna.Tipo)">@columna.Titulo</th>
+                                            }
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var fila in resultado.Filas)
+                                        {
+                                            <tr>
+                                                @for (var indice = 0; indice < fila.Celdas.Count; indice++)
+                                                {
+                                                    var celda = fila.Celdas[indice];
+                                                    var columna = resultado.Columnas[indice];
+                                                    <td class="@ClaseColumna(columna.Tipo)">
+                                                        @if (!string.IsNullOrWhiteSpace(celda.Tono))
+                                                        {
+                                                            <span class="pill @celda.Tono">@celda.Texto</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            @celda.Texto
+                                                        }
+                                                    </td>
+                                                }
+                                            </tr>
+                                        }
+                                    </tbody>
+                                    @if (resultado.TotalEtiqueta is not null)
+                                    {
+                                        <tfoot>
+                                            <tr>
+                                                <td colspan="@resultado.Columnas.Count" class="table-total">
+                                                    <span>@resultado.TotalEtiqueta</span>
+                                                    <strong>@resultado.TotalValor</strong>
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+                                    }
+                                </table>
+                            </div>
+                        }
+                    </section>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private static readonly CultureInfo Cultura = new("es-DO");
+
+    private static readonly IReadOnlyList<TipoReporteInfo> Tipos =
+    [
+        new(ReporteTipo.Citas, "Reporte de citas", "Citas por período, odontólogo y estado", "calendar"),
+        new(ReporteTipo.Pacientes, "Reporte de pacientes", "Pacientes registrados, activos e inactivos", "users"),
+        new(ReporteTipo.Tratamientos, "Reporte de tratamientos", "Tratamientos realizados por período y estado", "activity"),
+        new(ReporteTipo.Pagos, "Reporte de pagos", "Ingresos y pagos por período y método", "money")
+    ];
+
+    private static readonly IReadOnlyList<PresetInfo> Presets =
+    [
+        new("hoy", "Hoy"),
+        new("7d", "7 días"),
+        new("30d", "30 días"),
+        new("mes", "Este mes"),
+        new("3m", "3 meses"),
+        new("anio", "Este año")
+    ];
+
+    private static readonly IReadOnlyList<EstadoOpcion> EstadosCita =
+    [
+        new(nameof(EstadoCita.Programada), "Programada"),
+        new(nameof(EstadoCita.Confirmada), "Confirmada"),
+        new(nameof(EstadoCita.Atendida), "Atendida"),
+        new(nameof(EstadoCita.Cancelada), "Cancelada"),
+        new(nameof(EstadoCita.NoAsistio), "No asistió")
+    ];
+
+    private static readonly IReadOnlyList<EstadoOpcion> EstadosPaciente =
+    [
+        new(nameof(EstadoRegistro.Activo), "Activo"),
+        new(nameof(EstadoRegistro.Inactivo), "Inactivo")
+    ];
+
+    private static readonly IReadOnlyList<EstadoOpcion> EstadosTratamiento =
+    [
+        new(nameof(EstadoTratamiento.Pendiente), "Pendiente"),
+        new(nameof(EstadoTratamiento.EnProceso), "En proceso"),
+        new(nameof(EstadoTratamiento.Completado), "Completado"),
+        new(nameof(EstadoTratamiento.Cancelado), "Cancelado")
+    ];
+
+    private static readonly IReadOnlyList<EstadoOpcion> MetodosPago =
+    [
+        new(nameof(MetodoPago.Efectivo), "Efectivo"),
+        new(nameof(MetodoPago.Tarjeta), "Tarjeta"),
+        new(nameof(MetodoPago.Transferencia), "Transferencia")
+    ];
+
+    private static readonly IReadOnlyDictionary<string, string> Iconos = new Dictionary<string, string>
+    {
+        ["calendar"] = "M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z",
+        ["check"] = "M20 6 9 17l-5-5",
+        ["x"] = "M18 6 6 18M6 6l12 12",
+        ["clock"] = "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2",
+        ["users"] = "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
+        ["user-check"] = "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM16 11l2 2 4-4",
+        ["user-x"] = "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM17 8l5 5M22 8l-5 5",
+        ["activity"] = "M22 12h-4l-3 9L9 3l-3 9H2",
+        ["money"] = "M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
+        ["receipt"] = "M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1zM8 7h8M8 11h8M8 15h5",
+        ["cash"] = "M2 6h20v12H2zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+        ["card"] = "M2 5h20v14H2zM2 10h20",
+        ["gauge"] = "M12 14l4-4M3.34 19a10 10 0 1 1 17.32 0",
+        ["chart"] = "M3 3v18h18M7 15l4-4 3 3 5-6"
+    };
+
+    private ReporteTipo? seleccionado;
+    private DateTime? desde = DateTime.Today.AddMonths(-3);
+    private DateTime? hasta = DateTime.Today;
+    private int? odontologoId;
+    private string? estado;
+    private List<ReporteOpcionDto> odontologos = [];
+    private ReporteResultadoDto? resultado;
+    private ReporteFiltroDto? filtroAplicado;
+    private bool generando;
+    private string? errorMessage;
+
+    private bool MuestraOdontologo =>
+        seleccionado is ReporteTipo.Citas or ReporteTipo.Tratamientos;
+
+    private bool MuestraEstado => seleccionado is not null;
+
+    private string EtiquetaEstado =>
+        seleccionado == ReporteTipo.Pagos ? "Método de pago" : "Estado";
+
+    private string TituloSeleccionado =>
+        Tipos.FirstOrDefault(tipo => tipo.Tipo == seleccionado)?.Titulo ?? "Reporte";
+
+    private IReadOnlyList<EstadoOpcion> EstadosDisponibles => seleccionado switch
+    {
+        ReporteTipo.Citas => EstadosCita,
+        ReporteTipo.Pacientes => EstadosPaciente,
+        ReporteTipo.Tratamientos => EstadosTratamiento,
+        ReporteTipo.Pagos => MetodosPago,
+        _ => []
+    };
+
+    private ReporteSerieDto? SeriePrincipal =>
+        resultado?.Series.OrderByDescending(serie => serie.Cantidad).FirstOrDefault();
+
+    private string PdfUrl
+    {
+        get
+        {
+            if (seleccionado is null || filtroAplicado is null)
+            {
+                return "#";
+            }
+
+            var partes = new List<string>
+            {
+                $"tipo={Uri.EscapeDataString(seleccionado.Value.ToString())}"
+            };
+
+            if (filtroAplicado.Desde.HasValue)
+            {
+                partes.Add($"desde={filtroAplicado.Desde.Value:yyyy-MM-dd}");
+            }
+
+            if (filtroAplicado.Hasta.HasValue)
+            {
+                partes.Add($"hasta={filtroAplicado.Hasta.Value:yyyy-MM-dd}");
+            }
+
+            if (filtroAplicado.OdontologoId.HasValue)
+            {
+                partes.Add($"odontologoId={filtroAplicado.OdontologoId.Value}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(filtroAplicado.Estado))
+            {
+                partes.Add($"estado={Uri.EscapeDataString(filtroAplicado.Estado)}");
+            }
+
+            return "/reportes/pdf?" + string.Join("&", partes);
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            odontologos = (await ReporteService.GetOdontologosAsync()).ToList();
+        }
+        catch (Exception)
+        {
+            errorMessage = "No fue posible cargar los filtros del reporte.";
+        }
+    }
+
+    private void Seleccionar(ReporteTipo tipo)
+    {
+        seleccionado = tipo;
+        resultado = null;
+        filtroAplicado = null;
+        odontologoId = null;
+        estado = null;
+        errorMessage = null;
+    }
+
+    private async Task GenerarAsync()
+    {
+        if (seleccionado is null)
+        {
+            return;
+        }
+
+        if (desde.HasValue && hasta.HasValue && desde.Value.Date > hasta.Value.Date)
+        {
+            errorMessage = "La fecha inicial no puede ser mayor que la fecha final.";
+            return;
+        }
+
+        generando = true;
+        errorMessage = null;
+
+        try
+        {
+            var filtro = new ReporteFiltroDto(desde, hasta, odontologoId, estado);
+            filtroAplicado = filtro;
+            resultado = await ReporteService.GenerarAsync(seleccionado.Value, filtro);
+        }
+        catch (InvalidOperationException exception)
+        {
+            errorMessage = exception.Message;
+        }
+        catch (Exception)
+        {
+            errorMessage = "No fue posible generar el reporte.";
+        }
+        finally
+        {
+            generando = false;
+        }
+    }
+
+    private void Limpiar()
+    {
+        seleccionado = null;
+        resultado = null;
+        filtroAplicado = null;
+        odontologoId = null;
+        estado = null;
+        errorMessage = null;
+
+        var (inicio, fin) = RangoPreset("3m");
+        desde = inicio;
+        hasta = fin;
+    }
+
+    private void AplicarPreset(PresetInfo preset)
+    {
+        var (inicio, fin) = RangoPreset(preset.Clave);
+        desde = inicio;
+        hasta = fin;
+    }
+
+    private bool EsPresetActivo(PresetInfo preset)
+    {
+        var (inicio, fin) = RangoPreset(preset.Clave);
+        return desde?.Date == inicio && hasta?.Date == fin;
+    }
+
+    private static (DateTime Inicio, DateTime Fin) RangoPreset(string clave)
+    {
+        var hoy = DateTime.Today;
+
+        return clave switch
+        {
+            "hoy" => (hoy, hoy),
+            "7d" => (hoy.AddDays(-6), hoy),
+            "30d" => (hoy.AddDays(-29), hoy),
+            "mes" => (new DateTime(hoy.Year, hoy.Month, 1), hoy),
+            "3m" => (hoy.AddMonths(-3), hoy),
+            "anio" => (new DateTime(hoy.Year, 1, 1), hoy),
+            _ => (hoy.AddMonths(-3), hoy)
+        };
+    }
+
+    private int Porcentaje(ReporteSerieDto serie)
+    {
+        var total = resultado?.Series.Sum(item => item.Cantidad) ?? 0;
+
+        return total == 0
+            ? 0
+            : (int)Math.Round(serie.Cantidad * 100d / total);
+    }
+
+    private static string ClaseColumna(TipoColumna tipo) => tipo switch
+    {
+        TipoColumna.Numero => "align-right",
+        TipoColumna.Dinero => "align-right money",
+        TipoColumna.Estado => "col-state",
+        _ => string.Empty
+    };
+
+    private static string Icono(string clave) =>
+        Iconos.TryGetValue(clave, out var ruta) ? ruta : Iconos["chart"];
+
+    private static string FormatRegistros(int cantidad) =>
+        cantidad == 1 ? "1 registro" : $"{cantidad.ToString("N0", Cultura)} registros";
+
+    private static string Categorias(int cantidad) =>
+        cantidad == 1 ? "1 categoría" : $"{cantidad} categorías";
+
+    private sealed record TipoReporteInfo(
+        ReporteTipo Tipo,
+        string Titulo,
+        string Descripcion,
+        string Icono);
+
+    private sealed record EstadoOpcion(string Valor, string Texto);
+
+    private sealed record PresetInfo(string Clave, string Texto);
+}
