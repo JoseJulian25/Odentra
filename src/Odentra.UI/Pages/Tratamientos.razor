@@ -1,11 +1,10 @@
-﻿@page "/tratamientos"
+@page "/tratamientos"
 @rendermode InteractiveServer
-@using Microsoft.EntityFrameworkCore
 @using Odentra.Data
 @using Odentra.Data.Entities
-@using Odentra.Services.Auditoria
-@inject ApplicationDbContext DbContext
-@inject IAuditoriaService AuditoriaService
+@using Odentra.Services.Tratamientos
+@attribute [Authorize(Policy = "Tratamientos.Ver")]
+@inject ITratamientoService TratamientoService
 
 <PageTitle>Tratamientos - Odentra</PageTitle>
 
@@ -15,17 +14,30 @@
         <h1 class="page-title">Tratamientos</h1>
         @if (pestañaActiva == "catalogo")
         {
-            <button class="btn-primary" @onclick="AbrirModalNuevoCatalogo">
-                <span class="icon-plus">+</span> Nuevo tratamiento
-            </button>
+            <AuthorizeView Policy="Tratamientos.Crear">
+                <Authorized>
+                    <button class="btn-primary" @onclick="AbrirModalNuevoCatalogo">
+                        <span class="icon-plus">+</span> Nuevo tratamiento
+                    </button>
+                </Authorized>
+            </AuthorizeView>
         }
         else
         {
-            <button class="btn-primary" @onclick="AbrirModalRegistrarRealizado">
-                <span class="icon-plus">+</span> Registrar tratamiento
-            </button>
+            <AuthorizeView Policy="Tratamientos.Crear">
+                <Authorized>
+                    <button class="btn-primary" @onclick="AbrirModalRegistrarRealizado">
+                        <span class="icon-plus">+</span> Registrar tratamiento
+                    </button>
+                </Authorized>
+            </AuthorizeView>
         }
     </div>
+
+    @if (!string.IsNullOrWhiteSpace(errorModal) && !mostrarModalCatalogo && !mostrarModalRealizado)
+    {
+        <div class="alert-error" role="alert">@errorModal</div>
+    }
 
     <!-- Pestañas Horizontales: Catálogo y Realizados -->
     <div class="tabs-container">
@@ -119,12 +131,16 @@
                                     }
                                 </td>
                                 <td style="text-align: center;">
-                                    <button class="btn-action" title="Editar" @onclick="() => EditarTratamiento(item)">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="action-icon">
-                                            <path d="M12 20h9" />
-                                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-                                        </svg>
-                                    </button>
+                                    <AuthorizeView Policy="Tratamientos.Editar">
+                                        <Authorized>
+                                            <button class="btn-action" title="Editar" @onclick="() => EditarTratamiento(item)">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="action-icon">
+                                                    <path d="M12 20h9" />
+                                                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                                                </svg>
+                                            </button>
+                                        </Authorized>
+                                    </AuthorizeView>
                                 </td>
                             </tr>
                         }
@@ -776,39 +792,20 @@
     private async Task CargarDatos()
     {
         cargando = true;
+        errorModal = null;
         try
         {
-            listaTratamientos = await DbContext.Tratamientos
-                .AsNoTracking()
-                .OrderBy(t => t.Nombre)
-                .ToListAsync();
-
-            listaRealizados = await DbContext.TratamientosRealizados
-                .Include(tr => tr.Paciente)
-                .Include(tr => tr.Tratamiento)
-                .Include(tr => tr.Odontologo)
-                .Include(tr => tr.PiezaDental)
-                .AsNoTracking()
-                .OrderByDescending(tr => tr.Fecha)
-                .ToListAsync();
-
-            pacientes = await DbContext.Pacientes.AsNoTracking().ToListAsync();
-            odontologos = await DbContext.Odontologos.AsNoTracking().ToListAsync();
-
-            try
-            {
-                piezasDentales = await DbContext.PiezasDentales.AsNoTracking().OrderBy(p => p.Id).ToListAsync();
-            }
-            catch
-            {
-                piezasDentales = new();
-            }
+            listaTratamientos = (await TratamientoService.SearchCatalogAsync(null, null)).ToList();
+            listaRealizados = (await TratamientoService.SearchRealizadosAsync()).ToList();
+            pacientes = (await TratamientoService.GetPacientesActivosAsync()).ToList();
+            odontologos = (await TratamientoService.GetOdontologosActivosAsync()).ToList();
+            piezasDentales = (await TratamientoService.GetPiezasDentalesAsync()).ToList();
 
             FiltrarDatos();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.WriteLine($"Error al cargar datos: {ex.Message}");
+            errorModal = "No fue posible cargar los datos de tratamientos.";
         }
         finally
         {
@@ -896,57 +893,19 @@
 
     private async Task GuardarTratamientoCatalogo()
     {
-        if (string.IsNullOrWhiteSpace(tratamientoEditando.Nombre))
-        {
-            errorModal = "El nombre del tratamiento es obligatorio.";
-            return;
-        }
-
-        if (tratamientoEditando.PrecioBase <= 0)
-        {
-            errorModal = "El precio base debe ser mayor a 0.";
-            return;
-        }
-
         try
         {
-            var esNuevo = tratamientoEditando.Id == 0;
-
-            if (esNuevo)
-            {
-                DbContext.Tratamientos.Add(tratamientoEditando);
-            }
-            else
-            {
-                var entidad = await DbContext.Tratamientos.FindAsync(tratamientoEditando.Id);
-                if (entidad != null)
-                {
-                    entidad.Nombre = tratamientoEditando.Nombre;
-                    entidad.Descripcion = tratamientoEditando.Descripcion;
-                    entidad.PrecioBase = tratamientoEditando.PrecioBase;
-                    entidad.Estado = tratamientoEditando.Estado;
-                }
-            }
-
-            await DbContext.SaveChangesAsync();
-
-            var accion = esNuevo ? "Agregó" : "Modificó";
-            if (!esNuevo && estadoOriginalTratamiento != tratamientoEditando.Estado)
-            {
-                accion = tratamientoEditando.Estado == EstadoRegistro.Activo ? "Activó" : "Desactivó";
-            }
-
-            await AuditoriaService.RegistrarAsync(
-                accion, "Tratamientos", nameof(Tratamiento), tratamientoEditando.Id,
-                $"{accion} el tratamiento: {tratamientoEditando.Nombre} — RD${tratamientoEditando.PrecioBase:N2}");
-
+            await TratamientoService.SaveCatalogAsync(tratamientoEditando, estadoOriginalTratamiento);
             mostrarModalCatalogo = false;
             await CargarDatos();
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex)
         {
-            var msg = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
-            errorModal = $"Error al guardar: {msg}";
+            errorModal = ex.Message;
+        }
+        catch (Exception)
+        {
+            errorModal = "No fue posible guardar el tratamiento.";
         }
     }
 
@@ -974,24 +933,6 @@
 
     private async Task GuardarTratamientoRealizado()
     {
-        if (nuevoRealizado.PacienteId <= 0)
-        {
-            errorModal = "Debe seleccionar un paciente.";
-            return;
-        }
-
-        if (nuevoRealizado.TratamientoId <= 0)
-        {
-            errorModal = "Debe seleccionar un tratamiento.";
-            return;
-        }
-
-        if (nuevoRealizado.OdontologoId <= 0)
-        {
-            errorModal = "Debe seleccionar un odontólogo.";
-            return;
-        }
-
         if (int.TryParse(piezaDentalSeleccionadaStr, out int idPieza) && idPieza > 0)
         {
             nuevoRealizado.PiezaDentalId = idPieza;
@@ -1003,27 +944,17 @@
 
         try
         {
-            DbContext.TratamientosRealizados.Add(nuevoRealizado);
-            await DbContext.SaveChangesAsync();
-
-            var paciente = pacientes.FirstOrDefault(p => p.Id == nuevoRealizado.PacienteId);
-            var nombrePaciente = paciente is not null
-                ? $"{paciente.Nombres} {paciente.Apellidos}"
-                : $"Paciente #{nuevoRealizado.PacienteId}";
-            var nombreTratamiento = listaTratamientos.FirstOrDefault(t => t.Id == nuevoRealizado.TratamientoId)?.Nombre
-                ?? $"Tratamiento #{nuevoRealizado.TratamientoId}";
-
-            await AuditoriaService.RegistrarAsync(
-                "Registró", "Tratamientos", nameof(TratamientoRealizado), nuevoRealizado.Id,
-                $"Registró el tratamiento {nombreTratamiento} para {nombrePaciente} — RD${nuevoRealizado.Precio:N2} ({nuevoRealizado.Estado})");
-
+            await TratamientoService.CreateRealizadoAsync(nuevoRealizado);
             mostrarModalRealizado = false;
             await CargarDatos();
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex)
         {
-            var msg = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
-            errorModal = $"Error al registrar: {msg}";
+            errorModal = ex.Message;
+        }
+        catch (Exception)
+        {
+            errorModal = "No fue posible registrar el tratamiento.";
         }
     }
 
