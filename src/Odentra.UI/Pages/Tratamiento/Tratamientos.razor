@@ -1,0 +1,926 @@
+﻿@page "/tratamientos"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = "Tratamientos.Ver")]
+@attribute [Authorize]
+@using Odentra.Data.Entities
+@using Odentra.Services.Tratamientos
+@using Odentra.Services.Tratamientos.DTOs
+@using Odentra.UI.Formatting
+@inject ITratamientoService TratamientoService
+
+@*
+    PÁGINA PRINCIPAL DEL MÓDULO DE TRATAMIENTOS (ruta /tratamientos)
+
+    Contiene dos pestañas:
+      1. Catálogo: mantenimiento de los tratamientos y sus precios base.
+      2. Realizados: tratamientos aplicados a pacientes, con acceso al detalle.
+
+    La página NO usa DbContext directamente: toda la lógica pasa por ITratamientoService.
+    Los botones de crear/editar están protegidos con AuthorizeView y permisos.
+*@
+
+<PageTitle>Tratamientos · Odentra</PageTitle>
+
+@* Encabezado: título y botón de acción según la pestaña activa. *@
+<div class="tratamientos-page">
+    <div class="top-header">
+        <h1 class="page-title">Tratamientos</h1>
+
+        @if (pestanaActiva == "catalogo")
+        {
+            <AuthorizeView Policy="Tratamientos.Crear">
+                <Authorized>
+                    <button type="button" class="btn-primary" @onclick="AbrirNuevoCatalogo">
+                        <span class="icon-plus">+</span> Nuevo tratamiento
+                    </button>
+                </Authorized>
+            </AuthorizeView>
+        }
+        else
+        {
+            <AuthorizeView Policy="Tratamientos.Crear">
+                <Authorized>
+                    <button type="button" class="btn-primary" @onclick="AbrirNuevoRealizadoAsync">
+                        <span class="icon-plus">+</span> Registrar tratamiento
+                    </button>
+                </Authorized>
+            </AuthorizeView>
+        }
+    </div>
+
+    @* Pestañas: cambian la vista y recargan los datos de la pestaña seleccionada. *@
+    <div class="tabs-container">
+        <button type="button"
+                class="tab-button @(pestanaActiva == "catalogo" ? "active" : "")"
+                @onclick='() => CambiarPestanaAsync("catalogo")'>
+            Catálogo
+        </button>
+        <button type="button"
+                class="tab-button @(pestanaActiva == "realizados" ? "active" : "")"
+                @onclick='() => CambiarPestanaAsync("realizados")'>
+            Realizados
+        </button>
+    </div>
+
+    @* Mensajes de resultado y de error de carga de la página. *@
+    @if (!string.IsNullOrWhiteSpace(mensajeExito))
+    {
+        <div class="alert-success" role="status">@mensajeExito</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(errorPagina))
+    {
+        <div class="alert-error page-alert" role="alert">
+            <span>@errorPagina</span>
+            <button type="button" class="alert-close" @onclick="CerrarErrorPagina" aria-label="Cerrar">×</button>
+        </div>
+    }
+
+    @* Filtros compartidos: caja de búsqueda y selector de estado.
+       El texto del placeholder y las opciones cambian según la pestaña. *@
+    <div class="filter-card">
+        <div class="search-box">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="11" cy="11" r="8" stroke-width="2" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" stroke-width="2" />
+            </svg>
+            <input type="text"
+                   value="@busqueda"
+                   @oninput="OnBusquedaInput"
+                   placeholder="@(pestanaActiva == "catalogo" ? "Buscar tratamiento..." : "Buscar paciente, tratamiento u odontólogo...")"
+                   class="search-input"
+                   aria-label="Buscar" />
+        </div>
+
+        <div class="status-select-container">
+            @if (pestanaActiva == "catalogo")
+            {
+                <select @bind="filtroEstadoCatalogo" @bind:after="OnFiltroChanged" class="status-select" aria-label="Filtrar por estado">
+                    <option value="Todos">Todos</option>
+                    <option value="Activo">Activo</option>
+                    <option value="Inactivo">Inactivo</option>
+                </select>
+            }
+            else
+            {
+                <select @bind="filtroEstadoRealizados" @bind:after="OnFiltroChanged" class="status-select" aria-label="Filtrar por estado">
+                    <option value="Todos">Todos</option>
+                    <option value="Completado">Completado</option>
+                    <option value="En proceso">En proceso</option>
+                    <option value="Pendiente">Pendiente</option>
+                    <option value="Cancelado">Cancelado</option>
+                </select>
+            }
+        </div>
+    </div>
+
+    @* ================= PESTAÑA CATÁLOGO =================
+       Tabla paginada de tratamientos. Cada fila permite abrir el modal de edición. *@
+    @if (pestanaActiva == "catalogo")
+    {
+        <div class="table-card">
+            <div class="table-scroll">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">TRATAMIENTO</th>
+                            <th style="width: 40%;">DESCRIPCIÓN</th>
+                            <th style="width: 15%;">PRECIO BASE</th>
+                            <th style="width: 10%;">ESTADO</th>
+                            <th style="width: 10%; text-align: center;">ACCIONES</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (cargando)
+                        {
+                            <tr>
+                                <td colspan="5" class="empty-state">Cargando catálogo...</td>
+                            </tr>
+                        }
+                        else if (catalogo is null || catalogo.Items.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="5" class="empty-state">No hay tratamientos para mostrar con los filtros aplicados.</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var item in catalogo.Items)
+                            {
+                                <tr>
+                                    <td class="col-main">@item.Nombre</td>
+                                    <td class="col-desc">@(string.IsNullOrWhiteSpace(item.Descripcion) ? "—" : item.Descripcion)</td>
+                                    <td class="col-price">@Formato.Moneda(item.PrecioBase)</td>
+                                    <td>
+                                        <span class="@(item.Estado == EstadoRegistro.Activo ? "status-active" : "status-inactive")">
+                                            @(item.Estado == EstadoRegistro.Activo ? "Activo" : "Inactivo")
+                                        </span>
+                                    </td>
+                                    <td class="col-actions">
+                                        @* Solo quien tenga permiso de edición ve el lápiz. *@
+                                        <AuthorizeView Policy="Tratamientos.Editar">
+                                            <Authorized>
+                                                <button type="button"
+                                                        class="btn-action"
+                                                        title="Editar"
+                                                        aria-label="Editar @item.Nombre"
+                                                        @onclick="() => AbrirEditarCatalogoAsync(item)">
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="action-icon">
+                                                        <path d="M12 20h9" />
+                                                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                                                    </svg>
+                                                </button>
+                                            </Authorized>
+                                        </AuthorizeView>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (catalogo is not null)
+            {
+                @* Pie de tabla: total de registros y controles de paginación. *@
+                <div class="table-footer">
+                    <span>@catalogo.TotalRegistros @(catalogo.TotalRegistros == 1 ? "registro" : "registros")</span>
+                    <div class="pagination">
+                        <button type="button"
+                                class="page-btn"
+                                disabled="@(!catalogo.HayPaginaAnterior)"
+                                @onclick="() => IrPaginaCatalogoAsync(paginaCatalogo - 1)"
+                                aria-label="Página anterior">‹</button>
+
+                        @foreach (var numero in PaginasVisibles(paginaCatalogo, catalogo.TotalPaginas))
+                        {
+                            <button type="button"
+                                    class="page-btn @(numero == paginaCatalogo ? "active" : "")"
+                                    @onclick="() => IrPaginaCatalogoAsync(numero)">@numero</button>
+                        }
+
+                        <button type="button"
+                                class="page-btn"
+                                disabled="@(!catalogo.HayPaginaSiguiente)"
+                                @onclick="() => IrPaginaCatalogoAsync(paginaCatalogo + 1)"
+                                aria-label="Página siguiente">›</button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @* ================= PESTAÑA REALIZADOS =================
+       Tabla paginada de tratamientos aplicados. El icono del ojo abre /tratamientos/{id}. *@
+    @if (pestanaActiva == "realizados")
+    {
+        <div class="table-card">
+            <div class="table-scroll">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 17%;">PACIENTE</th>
+                            <th style="width: 19%;">TRATAMIENTO</th>
+                            <th style="width: 15%;">ODONTÓLOGO</th>
+                            <th style="width: 11%;">FECHA</th>
+                            <th style="width: 9%;">PIEZA</th>
+                            <th style="width: 12%;">PRECIO</th>
+                            <th style="width: 12%;">ESTADO</th>
+                            <th style="width: 5%; text-align: center;">ACCIONES</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (cargando)
+                        {
+                            <tr>
+                                <td colspan="8" class="empty-state">Cargando tratamientos realizados...</td>
+                            </tr>
+                        }
+                        else if (realizados is null || realizados.Items.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="8" class="empty-state">No hay tratamientos realizados para mostrar con los filtros aplicados.</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var realizado in realizados.Items)
+                            {
+                                <tr>
+                                    <td class="col-main">@realizado.Paciente</td>
+                                    <td>@realizado.Tratamiento</td>
+                                    <td class="col-desc">@realizado.Odontologo</td>
+                                    <td class="col-date">@Formato.Fecha(realizado.Fecha)</td>
+                                    <td class="col-tooth">@(realizado.PiezaDental ?? "—")</td>
+                                    <td class="col-price">@Formato.Moneda(realizado.Precio)</td>
+                                    <td><EstadoTratamientoBadge Estado="realizado.Estado" /></td>
+                                    <td class="col-actions">
+                                        @* Enlace al detalle del tratamiento realizado. *@
+                                        <a class="btn-action"
+                                           href="/tratamientos/@realizado.Id"
+                                           title="Ver detalle"
+                                           aria-label="Ver detalle del tratamiento de @realizado.Paciente">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="action-icon">
+                                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                                <circle cx="12" cy="12" r="3" />
+                                            </svg>
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (realizados is not null)
+            {
+                @* Pie de tabla: total de registros y controles de paginación. *@
+                <div class="table-footer">
+                    <span>@realizados.TotalRegistros @(realizados.TotalRegistros == 1 ? "registro" : "registros")</span>
+                    <div class="pagination">
+                        <button type="button"
+                                class="page-btn"
+                                disabled="@(!realizados.HayPaginaAnterior)"
+                                @onclick="() => IrPaginaRealizadosAsync(paginaRealizados - 1)"
+                                aria-label="Página anterior">‹</button>
+
+                        @foreach (var numero in PaginasVisibles(paginaRealizados, realizados.TotalPaginas))
+                        {
+                            <button type="button"
+                                    class="page-btn @(numero == paginaRealizados ? "active" : "")"
+                                    @onclick="() => IrPaginaRealizadosAsync(numero)">@numero</button>
+                        }
+
+                        <button type="button"
+                                class="page-btn"
+                                disabled="@(!realizados.HayPaginaSiguiente)"
+                                @onclick="() => IrPaginaRealizadosAsync(paginaRealizados + 1)"
+                                aria-label="Página siguiente">›</button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@*
+    MODAL DE CATÁLOGO
+    Se usa para crear (Id = 0) o editar un tratamiento existente.
+    EditForm + DataAnnotationsValidator validan los campos antes de llamar al servicio.
+*@
+@if (mostrarModalCatalogo)
+{
+    <div class="modal-backdrop">
+        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="catalogo-modal-title">
+            <EditForm Model="catalogoForm" OnValidSubmit="GuardarCatalogoAsync">
+                <DataAnnotationsValidator />
+
+                <div class="modal-header">
+                    <h3 class="modal-title" id="catalogo-modal-title">
+                        @(catalogoForm.Id == 0 ? "Nuevo tratamiento" : $"Editar: {catalogoForm.Nombre}")
+                    </h3>
+                    <button type="button" class="modal-close-btn" @onclick="CerrarModales" aria-label="Cerrar">&times;</button>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(errorModal))
+                {
+                    <div class="alert-error modal-alert" role="alert">@errorModal</div>
+                }
+
+                @* Campos editables del catálogo. *@
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label" for="catalogo-nombre">Nombre del tratamiento</label>
+                        <InputText id="catalogo-nombre" @bind-Value="catalogoForm.Nombre" class="form-control" />
+                        <ValidationMessage For="() => catalogoForm.Nombre" class="field-error" />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="catalogo-descripcion">Descripción</label>
+                        <InputTextArea id="catalogo-descripcion"
+                                       @bind-Value="catalogoForm.Descripcion"
+                                       rows="3"
+                                       class="form-control resize-none" />
+                        <ValidationMessage For="() => catalogoForm.Descripcion" class="field-error" />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="catalogo-precio">Precio base (RD$)</label>
+                        <InputNumber id="catalogo-precio"
+                                     @bind-Value="catalogoForm.PrecioBase"
+                                     step="0.01"
+                                     class="form-control" />
+                        <ValidationMessage For="() => catalogoForm.PrecioBase" class="field-error" />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="catalogo-estado">Estado</label>
+                        <InputSelect id="catalogo-estado" @bind-Value="catalogoForm.Estado" class="form-control">
+                            <option value="@EstadoRegistro.Activo">Activo</option>
+                            <option value="@EstadoRegistro.Inactivo">Inactivo</option>
+                        </InputSelect>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel" @onclick="CerrarModales" disabled="@guardando">Cancelar</button>
+                    <button type="submit" class="btn-primary" disabled="@guardando">
+                        @(guardando ? "Guardando..." : "Guardar")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@*
+    MODAL DE REGISTRO DE TRATAMIENTO REALIZADO
+    Las listas (pacientes, odontólogos, piezas y tratamientos) se cargan antes de abrirlo.
+    Solo se muestran tratamientos activos y pacientes/odontólogos activos.
+*@
+@if (mostrarModalRealizado)
+{
+    <div class="modal-backdrop">
+        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="realizado-modal-title">
+            <EditForm Model="realizadoForm" OnValidSubmit="GuardarRealizadoAsync">
+                <DataAnnotationsValidator />
+
+                <div class="modal-header">
+                    <h3 class="modal-title" id="realizado-modal-title">Registrar tratamiento realizado</h3>
+                    <button type="button" class="modal-close-btn" @onclick="CerrarModales" aria-label="Cerrar">&times;</button>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(errorModal))
+                {
+                    <div class="alert-error modal-alert" role="alert">@errorModal</div>
+                }
+
+                @* Selectores principales: paciente, tratamiento y odontólogo. *@
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label" for="realizado-paciente">Paciente</label>
+                        <InputSelect id="realizado-paciente" @bind-Value="realizadoForm.PacienteId" class="form-control">
+                            <option value="0">Seleccione un paciente...</option>
+                            @foreach (var paciente in catalogos.Pacientes)
+                            {
+                                <option value="@paciente.Id">@paciente.Texto</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="() => realizadoForm.PacienteId" class="field-error" />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="realizado-tratamiento">Tratamiento del catálogo</label>
+                        <InputSelect id="realizado-tratamiento"
+                                     @bind-Value="realizadoForm.TratamientoId"
+                                     @bind-Value:after="OnTratamientoSeleccionado"
+                                     class="form-control">
+                            <option value="0">Seleccione un tratamiento...</option>
+                            @foreach (var tratamiento in catalogos.Tratamientos)
+                            {
+                                <option value="@tratamiento.Id">@tratamiento.Texto (@Formato.Moneda(tratamiento.Precio ?? 0))</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="() => realizadoForm.TratamientoId" class="field-error" />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="realizado-odontologo">Odontólogo</label>
+                        <InputSelect id="realizado-odontologo" @bind-Value="realizadoForm.OdontologoId" class="form-control">
+                            <option value="0">Seleccione un odontólogo...</option>
+                            @foreach (var odontologo in catalogos.Odontologos)
+                            {
+                                <option value="@odontologo.Id">@odontologo.Texto</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="() => realizadoForm.OdontologoId" class="field-error" />
+                    </div>
+
+                    @* Fecha (no futura) y pieza dental opcional. *@
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="realizado-fecha">Fecha</label>
+                            <InputDate id="realizado-fecha"
+                                       @bind-Value="realizadoForm.Fecha"
+                                       max="@DateTime.Today.ToString("yyyy-MM-dd")"
+                                       class="form-control" />
+                            <ValidationMessage For="() => realizadoForm.Fecha" class="field-error" />
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="realizado-pieza">Pieza dental</label>
+                            <InputSelect id="realizado-pieza" @bind-Value="realizadoForm.PiezaDentalId" class="form-control">
+                                <option value="">Ninguna / No aplica</option>
+                                @foreach (var pieza in catalogos.Piezas)
+                                {
+                                    <option value="@pieza.Id">@pieza.Texto</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    @* Precio final y estado clínico inicial. *@
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="realizado-precio">Precio (RD$)</label>
+                            <InputNumber id="realizado-precio"
+                                         @bind-Value="realizadoForm.Precio"
+                                         step="0.01"
+                                         class="form-control" />
+                            <ValidationMessage For="() => realizadoForm.Precio" class="field-error" />
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="realizado-estado">Estado</label>
+                            <InputSelect id="realizado-estado" @bind-Value="realizadoForm.Estado" class="form-control">
+                                <option value="@EstadoTratamiento.Pendiente">Pendiente</option>
+                                <option value="@EstadoTratamiento.EnProceso">En proceso</option>
+                                <option value="@EstadoTratamiento.Completado">Completado</option>
+                                <option value="@EstadoTratamiento.Cancelado">Cancelado</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    @* Notas clínicas opcionales. *@
+                    <div class="form-group">
+                        <label class="form-label" for="realizado-observaciones">Observaciones</label>
+                        <InputTextArea id="realizado-observaciones"
+                                       @bind-Value="realizadoForm.Observaciones"
+                                       rows="2"
+                                       placeholder="Notas clínicas..."
+                                       class="form-control resize-none" />
+                        <ValidationMessage For="() => realizadoForm.Observaciones" class="field-error" />
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel" @onclick="CerrarModales" disabled="@guardando">Cancelar</button>
+                    <button type="submit" class="btn-primary" disabled="@guardando">
+                        @(guardando ? "Guardando..." : "Guardar")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    // Cantidad de filas por página que se piden al servicio.
+    private const int TamanoPagina = 10;
+
+    // ----- Estado de navegación y filtros -----
+    private string pestanaActiva = "catalogo";
+    private string busqueda = string.Empty;
+    private string filtroEstadoCatalogo = "Todos";
+    private string filtroEstadoRealizados = "Todos";
+    private int paginaCatalogo = 1;
+    private int paginaRealizados = 1;
+
+    // Versión de la búsqueda: sirve para descartar respuestas viejas del debounce.
+    private int versionBusqueda;
+
+    // ----- Datos que se muestran en pantalla -----
+    private PaginaResultadoDto<TratamientoListItemDto>? catalogo;
+    private PaginaResultadoDto<TratamientoRealizadoListItemDto>? realizados;
+    private CatalogosRealizadoDto catalogos = CatalogosRealizadoDto.Vacio;
+
+    // ----- Estados de UI (carga, guardado y mensajes) -----
+    private bool cargando;
+    private bool guardando;
+    private string? errorPagina;
+    private string? errorModal;
+    private string? mensajeExito;
+
+    // ----- Control de modales y modelos de formulario -----
+    private bool mostrarModalCatalogo;
+    private bool mostrarModalRealizado;
+    private TratamientoFormDto catalogoForm = new();
+    private TratamientoRealizadoFormDto realizadoForm = new();
+
+    // Al cargar la página se muestra primero el catálogo.
+    protected override Task OnInitializedAsync() => CargarCatalogoAsync();
+
+    /// <summary>
+    /// Cambia entre Catálogo y Realizados.
+    /// Limpia búsqueda/filtros de la pestaña anterior, reinicia páginas y recarga datos.
+    /// </summary>
+    private async Task CambiarPestanaAsync(string pestana)
+    {
+        if (pestanaActiva == pestana)
+        {
+            return;
+        }
+
+        versionBusqueda++;
+        pestanaActiva = pestana;
+        busqueda = string.Empty;
+        paginaCatalogo = 1;
+        paginaRealizados = 1;
+        errorPagina = null;
+        mensajeExito = null;
+
+        if (pestana == "catalogo")
+        {
+            await CargarCatalogoAsync();
+        }
+        else
+        {
+            await CargarRealizadosAsync();
+        }
+    }
+
+    /// <summary>
+    /// Se ejecuta al cambiar el selector de estado.
+    /// Vuelve a la página 1 porque el resultado filtrado puede tener menos páginas.
+    /// </summary>
+    private Task OnFiltroChanged() => pestanaActiva == "catalogo"
+        ? CargarCatalogoAsync(1)
+        : CargarRealizadosAsync(1);
+
+    /// <summary>
+    /// Búsqueda con "debounce": espera 300 ms desde la última tecla antes de consultar.
+    /// Si el usuario sigue escribiendo, la versión cambia y la respuesta anterior se descarta.
+    /// </summary>
+    private async Task OnBusquedaInput(ChangeEventArgs args)
+    {
+        busqueda = args.Value?.ToString() ?? string.Empty;
+        var version = ++versionBusqueda;
+
+        // Espera breve para no consultar en cada tecla.
+        await Task.Delay(300);
+
+        // Si llegó otra tecla mientras esperábamos, esta ejecución ya no sirve.
+        if (version != versionBusqueda)
+        {
+            return;
+        }
+
+        if (pestanaActiva == "catalogo")
+        {
+            await CargarCatalogoAsync(1);
+        }
+        else
+        {
+            await CargarRealizadosAsync(1);
+        }
+    }
+
+    /// <summary>
+    /// Carga una página del catálogo desde el servicio.
+    /// Si <paramref name="pagina"/> es mayor que 0, actualiza la página actual.
+    /// Traduce el texto del filtro ("Activo"/"Inactivo") al enum del dominio.
+    /// </summary>
+    private async Task CargarCatalogoAsync(int pagina = 0)
+    {
+        if (pagina > 0)
+        {
+            paginaCatalogo = pagina;
+        }
+
+        cargando = true;
+        errorPagina = null;
+
+        try
+        {
+            // El select trabaja con texto; aquí se convierte al enum del dominio.
+            var estado = filtroEstadoCatalogo switch
+            {
+                "Activo" => EstadoRegistro.Activo,
+                "Inactivo" => EstadoRegistro.Inactivo,
+                _ => (EstadoRegistro?)null
+            };
+
+            catalogo = await TratamientoService.SearchCatalogoAsync(
+                busqueda,
+                estado,
+                paginaCatalogo,
+                TamanoPagina);
+        }
+        catch (Exception exception)
+        {
+            errorPagina = "No fue posible cargar el catálogo de tratamientos.";
+            Console.Error.WriteLine(exception);
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    /// <summary>
+    /// Carga una página de tratamientos realizados.
+    /// Traduce el texto del filtro al enum EstadoTratamiento correspondiente.
+    /// </summary>
+    private async Task CargarRealizadosAsync(int pagina = 0)
+    {
+        if (pagina > 0)
+        {
+            paginaRealizados = pagina;
+        }
+
+        cargando = true;
+        errorPagina = null;
+
+        try
+        {
+            // El select trabaja con texto; aquí se convierte al enum del dominio.
+            var estado = filtroEstadoRealizados switch
+            {
+                "Completado" => EstadoTratamiento.Completado,
+                "En proceso" => EstadoTratamiento.EnProceso,
+                "Pendiente" => EstadoTratamiento.Pendiente,
+                "Cancelado" => EstadoTratamiento.Cancelado,
+                _ => (EstadoTratamiento?)null
+            };
+
+            realizados = await TratamientoService.SearchRealizadosAsync(
+                busqueda,
+                estado,
+                paginaRealizados,
+                TamanoPagina);
+        }
+        catch (Exception exception)
+        {
+            errorPagina = "No fue posible cargar los tratamientos realizados.";
+            Console.Error.WriteLine(exception);
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    /// <summary>
+    /// Navega a una página del catálogo validando que exista.
+    /// Evita pedir páginas negativas o mayores al total.
+    /// </summary>
+    private Task IrPaginaCatalogoAsync(int pagina)
+    {
+        if (catalogo is null || pagina < 1 || pagina > catalogo.TotalPaginas)
+        {
+            return Task.CompletedTask;
+        }
+
+        return CargarCatalogoAsync(pagina);
+    }
+
+    /// <summary>Navega a una página de realizados validando que exista.</summary>
+    private Task IrPaginaRealizadosAsync(int pagina)
+    {
+        if (realizados is null || pagina < 1 || pagina > realizados.TotalPaginas)
+        {
+            return Task.CompletedTask;
+        }
+
+        return CargarRealizadosAsync(pagina);
+    }
+
+    /// <summary>
+    /// Calcula qué números de página mostrar en la paginación.
+    /// Muestra como máximo 5 botones alrededor de la página actual.
+    /// </summary>
+    private static IEnumerable<int> PaginasVisibles(int paginaActual, int totalPaginas)
+    {
+        if (totalPaginas <= 1)
+        {
+            yield return 1;
+            yield break;
+        }
+
+        var inicio = Math.Max(1, paginaActual - 2);
+        var fin = Math.Min(totalPaginas, inicio + 4);
+        inicio = Math.Max(1, fin - 4);
+
+        for (var numero = inicio; numero <= fin; numero++)
+        {
+            yield return numero;
+        }
+    }
+
+    /// <summary>
+    /// Abre el modal de catálogo en modo creación.
+    /// Se reinicia el formulario para no arrastrar datos de una edición anterior.
+    /// </summary>
+    private void AbrirNuevoCatalogo()
+    {
+        errorModal = null;
+        mensajeExito = null;
+        catalogoForm = new TratamientoFormDto();
+        mostrarModalCatalogo = true;
+    }
+
+    /// <summary>
+    /// Abre el modal en modo edición.
+    /// Pide los datos frescos al servicio (no usa la fila de la tabla) para evitar
+    /// mostrar información desactualizada.
+    /// </summary>
+    private async Task AbrirEditarCatalogoAsync(TratamientoListItemDto item)
+    {
+        errorPagina = null;
+        errorModal = null;
+        mensajeExito = null;
+
+        try
+        {
+            var formulario = await TratamientoService.GetFormAsync(item.Id);
+            if (formulario is null)
+            {
+                errorPagina = "El tratamiento seleccionado ya no existe.";
+                return;
+            }
+
+            catalogoForm = formulario;
+            mostrarModalCatalogo = true;
+        }
+        catch (Exception exception)
+        {
+            errorPagina = "No fue posible abrir el tratamiento seleccionado.";
+            Console.Error.WriteLine(exception);
+        }
+    }
+
+    /// <summary>
+    /// Abre el modal para registrar un tratamiento realizado.
+    /// Antes carga las listas y verifica que exista al menos un paciente,
+    /// un odontólogo y un tratamiento activo; si falta algo, muestra un aviso.
+    /// </summary>
+    private async Task AbrirNuevoRealizadoAsync()
+    {
+        errorPagina = null;
+        errorModal = null;
+        mensajeExito = null;
+
+        try
+        {
+            catalogos = await TratamientoService.GetCatalogosAsync();
+
+            if (catalogos.Pacientes.Count == 0 ||
+                catalogos.Odontologos.Count == 0 ||
+                catalogos.Tratamientos.Count == 0)
+            {
+                errorPagina = "Para registrar un tratamiento necesita al menos un paciente, un odontólogo y un tratamiento activos.";
+                return;
+            }
+
+            realizadoForm = new TratamientoRealizadoFormDto
+            {
+                Fecha = DateTime.Today
+            };
+
+            mostrarModalRealizado = true;
+        }
+        catch (Exception exception)
+        {
+            errorPagina = "No fue posible cargar los datos del formulario.";
+            Console.Error.WriteLine(exception);
+        }
+    }
+
+    /// <summary>
+    /// Se ejecuta al cambiar el tratamiento del catálogo en el formulario.
+    /// Autocompleta el precio con el precio base del tratamiento seleccionado.
+    /// </summary>
+    private void OnTratamientoSeleccionado()
+    {
+        var seleccionado = catalogos.Tratamientos
+            .FirstOrDefault(tratamiento => tratamiento.Id == realizadoForm.TratamientoId);
+
+        if (seleccionado?.Precio is decimal precioBase)
+        {
+            realizadoForm.Precio = precioBase;
+        }
+    }
+
+    /// <summary>
+    /// Guarda el formulario del catálogo (crear o editar según el Id).
+    /// Los errores de negocio se muestran dentro del modal; los inesperados se registran.
+    /// Al terminar recarga la tabla (página 1 si es nuevo).
+    /// </summary>
+    private async Task GuardarCatalogoAsync()
+    {
+        errorModal = null;
+        guardando = true;
+
+        try
+        {
+            // Id 0 = alta; cualquier otro Id = edición.
+            var esNuevo = catalogoForm.Id == 0;
+
+            if (esNuevo)
+            {
+                await TratamientoService.CreateAsync(catalogoForm);
+            }
+            else
+            {
+                await TratamientoService.UpdateAsync(catalogoForm);
+            }
+
+            mostrarModalCatalogo = false;
+            mensajeExito = esNuevo
+                ? "Tratamiento creado correctamente."
+                : "Tratamiento actualizado correctamente.";
+
+            await CargarCatalogoAsync(esNuevo ? 1 : paginaCatalogo);
+        }
+        catch (InvalidOperationException exception)
+        {
+            // Errores de negocio: se muestran tal cual al usuario.
+            errorModal = exception.Message;
+        }
+        catch (Exception exception)
+        {
+            errorModal = "No fue posible guardar el tratamiento. Intente nuevamente.";
+            Console.Error.WriteLine(exception);
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    /// <summary>
+    /// Registra el tratamiento realizado.
+    /// Si el servicio rechaza una regla (fecha futura, inactivo, etc.),
+    /// el mensaje se muestra dentro del modal y este permanece abierto.
+    /// </summary>
+    private async Task GuardarRealizadoAsync()
+    {
+        errorModal = null;
+        guardando = true;
+
+        try
+        {
+            await TratamientoService.CreateRealizadoAsync(realizadoForm);
+
+            // Se cierra el modal, se informa y se recarga la primera página.
+            mostrarModalRealizado = false;
+            mensajeExito = "Tratamiento registrado correctamente.";
+            await CargarRealizadosAsync(1);
+        }
+        catch (InvalidOperationException exception)
+        {
+            errorModal = exception.Message;
+        }
+        catch (Exception exception)
+        {
+            errorModal = "No fue posible registrar el tratamiento. Intente nuevamente.";
+            Console.Error.WriteLine(exception);
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    /// <summary>Cierra ambos modales y limpia el error mostrado dentro de ellos.</summary>
+    private void CerrarModales()
+    {
+        mostrarModalCatalogo = false;
+        mostrarModalRealizado = false;
+        errorModal = null;
+    }
+
+    /// <summary>Oculta el banner de error de la página.</summary>
+    private void CerrarErrorPagina() => errorPagina = null;
+}

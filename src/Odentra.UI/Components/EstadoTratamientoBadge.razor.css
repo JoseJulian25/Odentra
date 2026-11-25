@@ -1,0 +1,39 @@
+/* ============================================================
+   Badge de estado clínico del tratamiento.
+   Se aísla en su propio .razor.css: Blazor le agrega un atributo
+   de alcance para que estos estilos no afecten otras pantallas.
+   ============================================================ */
+
+.tratamiento-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 9999px; /* forma de píldora */
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap; /* evita que "En proceso" se parta en dos líneas */
+    line-height: 1.4;
+}
+
+/* Completado: verde */
+.badge-completado {
+    background-color: #DCFCE7;
+    color: #15803D;
+}
+
+/* En proceso: azul */
+.badge-proceso {
+    background-color: #DBEAFE;
+    color: #1D4ED8;
+}
+
+/* Pendiente: ámbar */
+.badge-pendiente {
+    background-color: #FEF3C7;
+    color: #B45309;
+}
+
+/* Cancelado: rojo */
+.badge-cancelado {
+    background-color: #FEE2E2;
+    color: #B91C1C;
+}
