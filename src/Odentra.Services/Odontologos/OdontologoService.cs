@@ -1,10 +1,13 @@
 using Odentra.Data.Entities;
 using Odentra.Data.Repositories;
+using Odentra.Services.Auditoria;
 using Odentra.Services.Odontologos.DTOs;
 
 namespace Odentra.Services.Odontologos;
 
-public sealed class OdontologoService(IOdontologoRepository repository) : IOdontologoService
+public sealed class OdontologoService(
+    IOdontologoRepository repository,
+    IAuditoriaService auditoriaService) : IOdontologoService
 {
     public async Task<IReadOnlyList<OdontologoListItemDto>> SearchAsync(
         string? searchTerm,
@@ -45,6 +48,11 @@ public sealed class OdontologoService(IOdontologoRepository repository) : IOdont
 
         await repository.AddAsync(odontologo, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
+
+        await auditoriaService.RegistrarAsync(
+            "Agregó", "Odontólogos", nameof(Odontologo), odontologo.Id,
+            $"Agregó un odontólogo: {odontologo.Nombres} {odontologo.Apellidos}", cancellationToken);
+
         return odontologo.Id;
     }
 
@@ -56,6 +64,10 @@ public sealed class OdontologoService(IOdontologoRepository repository) : IOdont
         ApplyForm(odontologo, model);
         odontologo.Estado = model.Estado;
         await repository.SaveChangesAsync(cancellationToken);
+
+        await auditoriaService.RegistrarAsync(
+            "Modificó", "Odontólogos", nameof(Odontologo), odontologo.Id,
+            $"Modificó el odontólogo: {odontologo.Nombres} {odontologo.Apellidos}", cancellationToken);
     }
 
     public async Task SetStatusAsync(int id, EstadoRegistro estado, CancellationToken cancellationToken = default)
@@ -65,6 +77,11 @@ public sealed class OdontologoService(IOdontologoRepository repository) : IOdont
 
         odontologo.Estado = estado;
         await repository.SaveChangesAsync(cancellationToken);
+
+        var verbo = estado == EstadoRegistro.Activo ? "Activó" : "Desactivó";
+        await auditoriaService.RegistrarAsync(
+            verbo, "Odontólogos", nameof(Odontologo), odontologo.Id,
+            $"{verbo} el odontólogo: {odontologo.Nombres} {odontologo.Apellidos}", cancellationToken);
     }
 
     private static void ApplyForm(Odontologo odontologo, OdontologoFormDto model)

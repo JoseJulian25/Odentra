@@ -1,4 +1,5 @@
 ﻿@inherits LayoutComponentBase
+@using Odentra.Services.Autenticacion
 
 <div class="app-shell">
     <aside class="app-sidebar @(sidebarOpen ? "is-open" : "")">
@@ -160,6 +161,9 @@
     [Inject]
     private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = null!;
 
+    [Inject]
+    private ICurrentUserService CurrentUserService { get; set; } = null!;
+
     protected override async Task OnInitializedAsync()
     {
         var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
@@ -180,6 +184,9 @@
             .FirstOrDefault()
             ?? "Sin rol";
         UserInitials = GetInitials(UserName);
+
+        // Deja al usuario actual disponible para los servicios (auditoría de movimientos).
+        CurrentUserService.Establecer(user.FindFirst(ClaimTypes.NameIdentifier)?.Value, UserName);
     }
 
     private void ToggleSidebar() => sidebarOpen = !sidebarOpen;

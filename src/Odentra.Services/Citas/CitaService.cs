@@ -1,13 +1,17 @@
 using Odentra.Data.Entities;
 using Odentra.Data.Repositories;
+using Odentra.Services.Auditoria;
 using Odentra.Services.Citas.DTOs;
+using Odentra.Services.HistoriasClinicas;
 
 namespace Odentra.Services.Citas;
 
 public sealed class CitaService(
     ICitaRepository repository,
     IPacienteRepository pacienteRepository,
-    IOdontologoRepository odontologoRepository) : ICitaService
+    IOdontologoRepository odontologoRepository,
+    IHistoriaClinicaService historiaClinicaService,
+    IAuditoriaService auditoriaService) : ICitaService
 {
     public async Task<IReadOnlyList<CitaListItemDto>> SearchAsync(
         DateOnly? fecha = null,
@@ -88,6 +92,12 @@ public sealed class CitaService(
         try
         {
             await repository.AddAsync(cita, cancellationToken);
+
+            await auditoriaService.RegistrarAsync(
+                "Agendó", "Citas", nameof(Cita), cita.Id,
+                $"Agendó una cita para {paciente.Nombres} {paciente.Apellidos} con {odontologo.Nombres} {odontologo.Apellidos} el {cita.Fecha:dd/MM/yyyy} a las {cita.HoraInicio:HH:mm}",
+                cancellationToken);
+
             return cita.Id;
         }
         catch (Exception ex)
@@ -121,7 +131,16 @@ public sealed class CitaService(
         cita.Motivo = model.Motivo;
         cita.Estado = model.Estado;
 
+        // Si al editar la cita se la deja en estado Atendida, también se registra su consulta
+        // clínica (el puente con Historia Clínica), igual que al pulsar "Marcar como atendida".
+        await AsegurarConsultaDeAtencionAsync(cita, cancellationToken);
+
         await repository.UpdateAsync(cita, cancellationToken);
+
+        await auditoriaService.RegistrarAsync(
+            "Modificó", "Citas", nameof(Cita), cita.Id,
+            $"Modificó la cita de {paciente.Nombres} {paciente.Apellidos} el {cita.Fecha:dd/MM/yyyy} a las {cita.HoraInicio:HH:mm}",
+            cancellationToken);
     }
 
     public async Task SetEstadoAsync(int id, EstadoCita estado, CancellationToken cancellationToken = default)
@@ -131,8 +150,45 @@ public sealed class CitaService(
             throw new InvalidOperationException("La cita no existe.");
 
         cita.Estado = estado;
+
+        // Puente con Historia Clínica: si la cita queda Atendida, se registra su consulta clínica.
+        // Se hace ANTES de guardar el estado a propósito: si algo falla, la cita sigue como estaba
+        // y se puede volver a intentar. Al revés, la cita quedaría "Atendida" sin consulta y ya no
+        // habría botón para reintentar.
+        await AsegurarConsultaDeAtencionAsync(cita, cancellationToken);
+
         await repository.UpdateAsync(cita, cancellationToken);
+
+        await auditoriaService.RegistrarAsync(
+            "Cambió", "Citas", nameof(Cita), cita.Id,
+            $"Cambió la cita de {cita.Paciente.Nombres} {cita.Paciente.Apellidos} a estado '{NombreEstado(estado)}'",
+            cancellationToken);
     }
+
+    /// <summary>
+    /// Puente entre los módulos de Citas y de Historia Clínica: cuando una cita queda en estado
+    /// Atendida, se registra su consulta clínica (una sola por cita). Con cualquier otro estado
+    /// no hace nada.
+    /// </summary>
+    private async Task AsegurarConsultaDeAtencionAsync(Cita cita, CancellationToken cancellationToken)
+    {
+        if (cita.Estado != EstadoCita.Atendida)
+        {
+            return;
+        }
+
+        await historiaClinicaService.RegistrarConsultaDeCitaAsync(cita, cancellationToken);
+    }
+
+    private static string NombreEstado(EstadoCita estado) => estado switch
+    {
+        EstadoCita.Programada => "Programada",
+        EstadoCita.Confirmada => "Confirmada",
+        EstadoCita.Atendida => "Atendida",
+        EstadoCita.Cancelada => "Cancelada",
+        EstadoCita.NoAsistio => "No asistió",
+        _ => estado.ToString()
+    };
 
     private static CitaDetalleDto ToDetail(Cita cita) =>
         new(
@@ -146,7 +202,9 @@ public sealed class CitaService(
             cita.HoraFin,
             cita.Motivo,
             cita.Estado,
-            cita.FechaCreacion);
+            cita.FechaCreacion,
+            // La consulta clínica de la cita (null mientras la cita no se haya atendido).
+            cita.ConsultaClinica?.Id);
 
     private static CitaFormDto ToForm(Cita cita) =>
         new()

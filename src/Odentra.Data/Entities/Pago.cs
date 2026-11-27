@@ -8,6 +8,8 @@ public class Pago
     public decimal Monto { get; set; }
     public MetodoPago MetodoPago { get; set; }
     public string? Observaciones { get; set; }
+    public string UsuarioId { get; set; } = string.Empty;
 
     public TratamientoRealizado TratamientoRealizado { get; set; } = null!;
+    public Usuario Usuario { get; set; } = null!;
 }

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Odentra.Data;
 using Odentra.Data.Entities;
+using Odentra.Services.Auditoria;
 
 namespace Odentra.Services.Autorizacion;
 
@@ -14,8 +15,17 @@ public interface IRolService
 
 public sealed record RolePermissionDto(string Id, string Nombre, string? Descripcion, IReadOnlyList<string> Permisos);
 
-public sealed class RolService(ApplicationDbContext dbContext, RoleManager<Rol> roleManager) : IRolService
+public sealed class RolService(
+    ApplicationDbContext dbContext,
+    RoleManager<Rol> roleManager,
+    IAuditoriaService auditoriaService) : IRolService
 {
+    /// <summary>
+    /// El rol Administrador nunca pierde estos permisos: si se quitaran, nadie podria
+    /// volver a entrar a "Roles y permisos" para corregirlo.
+    /// </summary>
+    private static readonly string[] PermisosQueAdministradorConserva = ["Roles.Ver", "Roles.Editar"];
+
     public async Task<IReadOnlyList<RolePermissionDto>> GetRolesAsync(CancellationToken cancellationToken = default)
     {
         var roles = await roleManager.Roles.OrderBy(role => role.Name).ToListAsync(cancellationToken);
@@ -38,6 +48,12 @@ public sealed class RolService(ApplicationDbContext dbContext, RoleManager<Rol> 
         var role = await roleManager.FindByIdAsync(roleId)
             ?? throw new InvalidOperationException("El rol no existe.");
         var names = permissionNames.ToHashSet(StringComparer.Ordinal);
+
+        if (string.Equals(role.Name, RolesOdentra.Administrador, StringComparison.Ordinal))
+        {
+            names.UnionWith(PermisosQueAdministradorConserva);
+        }
+
         var permissions = await dbContext.Permisos
             .Where(permission => names.Contains(permission.Nombre))
             .ToListAsync(cancellationToken);
@@ -55,5 +71,9 @@ public sealed class RolService(ApplicationDbContext dbContext, RoleManager<Rol> 
             permissions.Select(permission => new RolPermiso { RolId = role.Id, PermisoId = permission.Id }),
             cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        await auditoriaService.RegistrarAsync(
+            "Modificó", "Roles y Permisos", nameof(Rol), null,
+            $"Actualizó los permisos del rol {role.Name} ({permissions.Count} permiso(s))", cancellationToken);
     }
 }

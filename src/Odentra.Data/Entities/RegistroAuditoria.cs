@@ -11,5 +11,16 @@ public class RegistroAuditoria
     public int? EntidadId { get; set; }
     public string? Descripcion { get; set; }
 
+    /// <summary>
+    /// Dirección IP desde la que se produjo el evento, cuando se conoce
+    /// (por ejemplo, en el inicio y cierre de sesión).
+    /// </summary>
+    public string? DireccionIp { get; set; }
+
+    /// <summary>
+    /// Agente de usuario (navegador) que originó el evento, cuando se conoce.
+    /// </summary>
+    public string? AgenteUsuario { get; set; }
+
     public Usuario Usuario { get; set; } = null!;
 }

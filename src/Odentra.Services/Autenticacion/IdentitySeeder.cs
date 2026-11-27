@@ -16,12 +16,14 @@ public static class IdentitySeeder
         var roleManager = services.GetRequiredService<RoleManager<Rol>>();
         var userManager = services.GetRequiredService<UserManager<Usuario>>();
 
-        foreach (var roleName in new[] { "Administrador", "Recepcionista", "Odontólogo" })
+        var createdRoles = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var roleName in new[] { RolesOdentra.Administrador, RolesOdentra.Recepcionista, RolesOdentra.Odontologo })
         {
             if (!await roleManager.RoleExistsAsync(roleName))
             {
                 var result = await roleManager.CreateAsync(new Rol { Name = roleName, Estado = EstadoRegistro.Activo });
                 EnsureSucceeded(result, $"crear el rol {roleName}");
+                createdRoles.Add(roleName);
             }
         }
 
@@ -46,29 +48,23 @@ public static class IdentitySeeder
 
         await services.GetRequiredService<ApplicationDbContext>().SaveChangesAsync();
 
+        // Los permisos por defecto solo se asignan cuando el rol se acaba de crear.
+        // Si el rol ya existia se respeta lo configurado en "Roles y permisos"; de lo
+        // contrario cada arranque reviviria los permisos que el administrador quito.
         foreach (var rolePermissions in PermissionCatalog.DefaultRolePermissions)
         {
+            if (!createdRoles.Contains(rolePermissions.Key)) continue;
+
             var role = await roleManager.FindByNameAsync(rolePermissions.Key);
             if (role is null) continue;
 
             var dbContext = services.GetRequiredService<ApplicationDbContext>();
-            var assignedPermissionIds = await dbContext.RolesPermisos
-                .Where(item => item.RolId == role.Id)
-                .Select(item => item.PermisoId)
-                .ToHashSetAsync();
-
-            var missingPermissions = rolePermissions.Value
-                .Select(permission => permissions[permission])
-                .Where(permission => !assignedPermissionIds.Contains(permission.Id))
+            dbContext.RolesPermisos.AddRange(rolePermissions.Value
                 .Select(permission => new RolPermiso
                 {
                     RolId = role.Id,
-                    PermisoId = permission.Id
-                })
-                .ToList();
-
-            dbContext.RolesPermisos.AddRange(missingPermissions);
-            if (missingPermissions.Count == 0) continue;
+                    PermisoId = permissions[permission].Id
+                }));
 
             await dbContext.SaveChangesAsync();
         }
@@ -89,9 +85,9 @@ public static class IdentitySeeder
             EnsureSucceeded(result, "crear el administrador inicial");
         }
 
-        if (!await userManager.IsInRoleAsync(admin, "Administrador"))
+        if (!await userManager.IsInRoleAsync(admin, RolesOdentra.Administrador))
         {
-            var result = await userManager.AddToRoleAsync(admin, "Administrador");
+            var result = await userManager.AddToRoleAsync(admin, RolesOdentra.Administrador);
             EnsureSucceeded(result, "asignar el rol Administrador");
         }
     }

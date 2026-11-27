@@ -200,10 +200,16 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(payment => payment.Monto).HasPrecision(12, 2);
             entity.Property(payment => payment.MetodoPago).HasConversion<string>().HasMaxLength(20);
             entity.Property(payment => payment.Fecha).HasDefaultValueSql("SYSUTCDATETIME()");
+            entity.Property(payment => payment.UsuarioId).HasMaxLength(450).IsRequired();
             entity.HasIndex(payment => new { payment.TratamientoRealizadoId, payment.Fecha });
+            entity.HasIndex(payment => payment.UsuarioId);
             entity.HasOne(payment => payment.TratamientoRealizado)
                 .WithMany(treatment => treatment.Pagos)
                 .HasForeignKey(payment => payment.TratamientoRealizadoId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(payment => payment.Usuario)
+                .WithMany(user => user.Pagos)
+                .HasForeignKey(payment => payment.UsuarioId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -214,8 +220,12 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(audit => audit.Accion).HasMaxLength(50).IsRequired();
             entity.Property(audit => audit.Modulo).HasMaxLength(100).IsRequired();
             entity.Property(audit => audit.Entidad).HasMaxLength(100).IsRequired();
+            entity.Property(audit => audit.DireccionIp).HasMaxLength(45);
+            entity.Property(audit => audit.AgenteUsuario).HasMaxLength(512);
             entity.Property(audit => audit.FechaHora).HasDefaultValueSql("SYSUTCDATETIME()");
             entity.HasIndex(audit => new { audit.UsuarioId, audit.FechaHora });
+            entity.HasIndex(audit => audit.FechaHora);
+            entity.HasIndex(audit => new { audit.Modulo, audit.Accion });
             entity.HasOne(audit => audit.Usuario)
                 .WithMany(user => user.RegistrosAuditoria)
                 .HasForeignKey(audit => audit.UsuarioId)

@@ -35,6 +35,7 @@ public sealed class PacienteRepository(ApplicationDbContext dbContext) : IPacien
 
     public Task<Paciente?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
         dbContext.Pacientes
+            .Include(patient => patient.HistoriaClinica)
             .FirstOrDefaultAsync(patient => patient.Id == id, cancellationToken);
 
     public Task<bool> ExistsWithIdentificationAsync(

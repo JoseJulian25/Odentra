@@ -38,4 +38,7 @@
 .detail-state a { color: #2563eb; font-size: 12px; }
 .feedback { margin-bottom: 12px; padding: 10px 12px; border-radius: 4px; font-size: 12px; }
 .feedback.error { border: 1px solid #fecaca; background: #fef2f2; color: #b91c1c; }
+.feedback.info { border: 1px solid #bfdbfe; background: #eff6ff; color: #1d4ed8; }
+.feedback.success { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #bbf7d0; background: #f0fdf4; color: #15803d; }
+.feedback.success a { color: #15803d; font-weight: 600; white-space: nowrap; }
 @media (max-width: 640px) { .page-header { align-items: stretch; flex-direction: column; } .header-actions { width: 100%; } .header-actions > * { flex: 1; text-align: center; justify-content: center; } .detail-grid { grid-template-columns: 1fr; } .detail-wide { grid-column: auto; } }
