@@ -14,6 +14,7 @@ using Odentra.Services.Odontologos;
 using Odentra.Services.Pacientes;
 using Odentra.Services.Pagos;
 using Odentra.Services.HistoriasClinicas;
+using Odentra.Services.Tratamientos;
 using Odentra.Services.Usuarios;
 using Odentra.Services.Auditoria;
 
@@ -98,11 +99,15 @@ public static class DependencyInjection
         services.AddScoped<ICitaService, CitaService>();
         services.AddScoped<IAuditoriaRepository, AuditoriaRepository>();
         services.AddScoped<IAuditoriaService, AuditoriaService>();
+        // Módulo de Tratamientos:
+        // el repositorio accede a EF Core y el servicio contiene las reglas de negocio.
+        // Ambos son Scoped: viven lo que dura la solicitud/circuito de Blazor Server.
         services.AddScoped<ITratamientoRepository, TratamientoRepository>();
         services.AddScoped<IPagoRepository, PagoRepository>();
         services.AddScoped<IPagoService, PagoService>();
         services.AddScoped<IHistoriaClinicaRepository, HistoriaClinicaRepository>();
         services.AddScoped<IHistoriaClinicaService, HistoriaClinicaService>();
+        services.AddScoped<ITratamientoService, TratamientoService>();
 
         return services;
     }
