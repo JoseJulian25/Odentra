@@ -1,0 +1,288 @@
+@page "/tratamientos/{Id:int}"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = "Tratamientos.Ver")]
+@attribute [Authorize]
+@using Odentra.Data.Entities
+@using Odentra.Services.Tratamientos
+@using Odentra.Services.Tratamientos.DTOs
+@using Odentra.UI.Formatting
+@inject ITratamientoService TratamientoService
+
+@*
+    DETALLE DE UN TRATAMIENTO REALIZADO (ruta /tratamientos/{Id})
+
+    Muestra dos bloques:
+      - Información clínica del tratamiento (paciente, odontólogo, fecha, pieza, estado).
+      - Estado financiero calculado a partir de los pagos registrados.
+
+    El registro es de solo lectura. El cambio de estado está permitido con
+    el permiso Tratamientos.Editar y lo valida el servicio (no se puede cancelar con pagos).
+*@
+
+<PageTitle>Detalle de tratamiento · Odentra</PageTitle>
+
+<div class="detail-page">
+    @if (cargando)
+    {
+        <div class="detail-state">Cargando tratamiento...</div>
+    }
+    else if (detalle is null)
+    {
+        <div class="detail-state">
+            <strong>Tratamiento no encontrado</strong>
+            <span>El tratamiento realizado que busca no existe o fue eliminado.</span>
+            <a class="btn-back" href="/tratamientos">← Volver a tratamientos</a>
+        </div>
+    }
+    else
+    {
+        <nav class="breadcrumb" aria-label="Ruta de navegación">
+            <a href="/tratamientos">Tratamientos</a>
+            <span class="breadcrumb-separator">›</span>
+            <span>Detalle de Tratamiento</span>
+        </nav>
+
+        <div class="detail-header">
+            <h1>Detalle de tratamiento</h1>
+            <a class="btn-back" href="/tratamientos">← Volver</a>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(mensajeExito))
+        {
+            <div class="alert-success" role="status">@mensajeExito</div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="alert-error" role="alert">@errorMessage</div>
+        }
+
+        @* Tarjeta 1: datos generales del tratamiento. *@
+        <div class="detail-grid">
+            <section class="card">
+                <div class="card-header">
+                    <h2>Información del tratamiento</h2>
+                </div>
+                <div class="card-body">
+                    <span class="section-label">GENERAL</span>
+
+                    <dl class="info-list">
+                        <div class="info-row">
+                            <dt>Paciente:</dt>
+                            <dd>@detalle.Paciente</dd>
+                        </div>
+                        <div class="info-row">
+                            <dt>Tratamiento:</dt>
+                            <dd>@detalle.Tratamiento</dd>
+                        </div>
+                        <div class="info-row">
+                            <dt>Odontólogo:</dt>
+                            <dd>@detalle.Odontologo</dd>
+                        </div>
+                        <div class="info-row">
+                            <dt>Fecha:</dt>
+                            <dd>@Formato.Fecha(detalle.Fecha)</dd>
+                        </div>
+                        <div class="info-row">
+                            <dt>Pieza dental:</dt>
+                            <dd>@(detalle.PiezaDental ?? "No aplica")</dd>
+                        </div>
+                        <div class="info-row">
+                            <dt>Estado:</dt>
+                            <dd><EstadoTratamientoBadge Estado="detalle.Estado" /></dd>
+                        </div>
+                    </dl>
+
+                    <span class="section-label">OBSERVACIONES</span>
+                    <p class="observaciones">
+                        @(string.IsNullOrWhiteSpace(detalle.Observaciones)
+                            ? "Sin observaciones registradas."
+                            : detalle.Observaciones)
+                    </p>
+                </div>
+            </section>
+
+            @* Tarjeta 2: resumen financiero y pagos registrados. *@
+            <section class="card">
+                <div class="card-header">
+                    <h2>Estado financiero</h2>
+                </div>
+                <div class="card-body">
+                    @* Totales calculados en TratamientoDetalleDto. *@
+                    <div class="money-row">
+                        <span>Precio del tratamiento</span>
+                        <strong>@Formato.Moneda(detalle.Precio)</strong>
+                    </div>
+                    <div class="money-row">
+                        <span>Total pagado</span>
+                        <strong class="money-paid">@Formato.Moneda(detalle.TotalPagado)</strong>
+                    </div>
+                    <div class="money-row">
+                        <span>Saldo pendiente</span>
+                        <strong class="@(detalle.SaldoPendiente > 0 ? "money-due" : "money-paid")">
+                            @Formato.Moneda(detalle.SaldoPendiente)
+                        </strong>
+                    </div>
+
+                    <span class="section-label">PAGOS REGISTRADOS</span>
+
+                    @if (detalle.Pagos.Count == 0)
+                    {
+                        <p class="empty-payments">Sin pagos registrados.</p>
+                    }
+                    else
+                    {
+                        <table class="payments-table">
+                            <thead>
+                                <tr>
+                                    <th>FECHA</th>
+                                    <th>MONTO</th>
+                                    <th>MÉTODO</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var pago in detalle.Pagos)
+                                {
+                                    <tr>
+                                        <td>@Formato.Fecha(pago.Fecha)</td>
+                                        <td>@Formato.Moneda(pago.Monto)</td>
+                                        <td>@pago.MetodoPago</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+
+                    @* El alta de pagos pertenece al módulo de Pagos.
+                       Mientras no exista esa pantalla, el botón queda deshabilitado. *@
+                    <AuthorizeView Policy="Pagos.Crear">
+                        <Authorized>
+                            <button type="button"
+                                    class="btn-pay"
+                                    disabled
+                                    title="Se habilitará al integrar el módulo de Pagos">
+                                Registrar pago
+                            </button>
+                            <p class="payment-hint">El registro de pagos se habilitará al integrar el módulo de Pagos.</p>
+                        </Authorized>
+                    </AuthorizeView>
+                </div>
+            </section>
+
+            @* Acción administrativa: cambiar el estado clínico.
+               El servicio impide cancelar si ya hay pagos registrados. *@
+            <AuthorizeView Policy="Tratamientos.Editar">
+                <Authorized>
+                    <section class="card state-card">
+                        <div class="card-body state-body">
+                            <div>
+                                <h2>Cambiar estado</h2>
+                                <p class="state-help">Actualiza el estado clínico de este tratamiento realizado.</p>
+                            </div>
+                            <div class="state-actions">
+                                <select @bind="nuevoEstado" class="form-control" aria-label="Nuevo estado">
+                                    <option value="@EstadoTratamiento.Pendiente">Pendiente</option>
+                                    <option value="@EstadoTratamiento.EnProceso">En proceso</option>
+                                    <option value="@EstadoTratamiento.Completado">Completado</option>
+                                    <option value="@EstadoTratamiento.Cancelado">Cancelado</option>
+                                </select>
+                                <button type="button"
+                                        class="btn-secondary"
+                                        @onclick="CambiarEstadoAsync"
+                                        disabled="@guardandoEstado">
+                                    @(guardandoEstado ? "Actualizando..." : "Actualizar")
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+                </Authorized>
+            </AuthorizeView>
+        </div>
+    }
+</div>
+
+@code {
+    // Id que llega desde la ruta /tratamientos/{Id}.
+    [Parameter]
+    public int Id { get; set; }
+
+    // DTO con toda la información de la pantalla (null mientras carga o si no existe).
+    private TratamientoDetalleDto? detalle;
+
+    // Estados de la UI.
+    private bool cargando = true;
+    private bool guardandoEstado;
+    private EstadoTratamiento nuevoEstado;
+    private string? errorMessage;
+    private string? mensajeExito;
+
+    // OnParametersSetAsync se ejecuta cada vez que cambia el Id de la ruta.
+    protected override Task OnParametersSetAsync() => CargarAsync();
+
+    /// <summary>
+    /// Pide el detalle al servicio y sincroniza el selector con el estado actual.
+    /// </summary>
+    private async Task CargarAsync()
+    {
+        cargando = true;
+        errorMessage = null;
+
+        try
+        {
+            detalle = await TratamientoService.GetDetalleAsync(Id);
+
+            if (detalle is not null)
+            {
+                nuevoEstado = detalle.Estado;
+            }
+        }
+        catch (Exception exception)
+        {
+            errorMessage = "No fue posible cargar el detalle del tratamiento.";
+            Console.Error.WriteLine(exception);
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    /// <summary>
+    /// Guarda el nuevo estado y recarga el detalle para reflejar el cambio.
+    /// Si el servicio rechaza la operación (por ejemplo, cancelar con pagos),
+    /// el mensaje se muestra en el banner de error.
+    /// </summary>
+    private async Task CambiarEstadoAsync()
+    {
+        if (detalle is null)
+        {
+            return;
+        }
+
+        errorMessage = null;
+        mensajeExito = null;
+        guardandoEstado = true;
+
+        try
+        {
+            await TratamientoService.SetEstadoRealizadoAsync(detalle.Id, nuevoEstado);
+
+            // Se vuelve a consultar para que la tarjeta muestre el estado actualizado.
+            detalle = await TratamientoService.GetDetalleAsync(detalle.Id);
+            mensajeExito = "Estado actualizado correctamente.";
+        }
+        catch (InvalidOperationException exception)
+        {
+            errorMessage = exception.Message;
+        }
+        catch (Exception exception)
+        {
+            errorMessage = "No fue posible actualizar el estado del tratamiento.";
+            Console.Error.WriteLine(exception);
+        }
+        finally
+        {
+            guardandoEstado = false;
+        }
+    }
+}

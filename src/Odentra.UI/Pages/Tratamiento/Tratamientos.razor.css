@@ -1,0 +1,538 @@
+/* ============================================================
+   ESTILOS DE LA PÁGINA /tratamientos
+   Blazor CSS Isolation: este archivo se aplica SOLO a los elementos
+   de Tratamientos.razor. No afecta a otras pantallas del sistema.
+   ============================================================ */
+
+.tratamientos-page {
+    padding: 24px 32px;
+    background-color: #F8FAFC;
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    box-sizing: border-box;
+}
+
+.tratamientos-page *,
+.modal-card * {
+    box-sizing: border-box;
+}
+
+/* ---------- Encabezado y botón principal ---------- */
+.top-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.page-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1E293B;
+    margin: 0;
+}
+
+.btn-primary {
+    background-color: #2563EB;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    text-decoration: none;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background-color: #1D4ED8;
+}
+
+.btn-primary:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.icon-plus {
+    font-size: 16px;
+    line-height: 1;
+}
+
+/* ---------- Pestañas Catálogo / Realizados ---------- */
+.tabs-container {
+    display: flex;
+    gap: 28px;
+    border-bottom: 1px solid #E2E8F0;
+    margin-bottom: 24px;
+}
+
+.tab-button {
+    background: none;
+    border: none;
+    padding-bottom: 12px;
+    font-size: 15px;
+    font-weight: 500;
+    color: #64748B;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.15s ease;
+}
+
+.tab-button:hover {
+    color: #1E293B;
+}
+
+.tab-button.active {
+    color: #2563EB;
+    font-weight: 600;
+}
+
+.tab-button.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: #2563EB;
+}
+
+/* ---------- Mensajes de éxito y error ---------- */
+.alert-success,
+.alert-error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+
+.alert-success {
+    background-color: #DCFCE7;
+    color: #15803D;
+}
+
+.alert-error {
+    background-color: #FEE2E2;
+    color: #B91C1C;
+}
+
+.page-alert {
+    margin-bottom: 16px;
+}
+
+.alert-close {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+}
+
+/* ---------- Barra de búsqueda y filtro de estado ---------- */
+.filter-card {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.search-box {
+    position: relative;
+    flex: 1;
+    max-width: 420px;
+}
+
+.search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    color: #94A3B8;
+}
+
+.search-input {
+    width: 100%;
+    padding: 8px 12px 8px 36px;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #1E293B;
+    outline: none;
+}
+
+.search-input:focus {
+    border-color: #2563EB;
+}
+
+.status-select {
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 14px;
+    color: #1E293B;
+    background-color: #FFFFFF;
+    outline: none;
+    min-width: 140px;
+}
+
+.status-select:focus {
+    border-color: #2563EB;
+}
+
+/* ---------- Tabla y celdas ---------- */
+.table-card {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.table-scroll {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.custom-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    text-align: left;
+    table-layout: fixed;
+}
+
+.custom-table thead {
+    background-color: #F8FAFC;
+    border-bottom: 1px solid #E2E8F0;
+}
+
+.custom-table th {
+    padding: 12px 20px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748B;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+.custom-table td {
+    padding: 14px 20px;
+    border-bottom: 1px solid #F1F5F9;
+    color: #334155;
+    vertical-align: middle;
+}
+
+.custom-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.custom-table tbody tr:hover {
+    background-color: #F8FAFC;
+}
+
+/* Columnas: nombre en negrita, descripción gris y datos numéricos sin saltos. */
+.col-main {
+    font-weight: 600;
+    color: #1E293B;
+    overflow-wrap: anywhere;
+}
+
+.col-desc {
+    color: #64748B;
+    overflow-wrap: anywhere;
+}
+
+.col-price {
+    font-weight: 700;
+    color: #1E293B;
+    white-space: nowrap;
+}
+
+.col-date,
+.col-tooth {
+    color: #475569;
+    white-space: nowrap;
+}
+
+.col-actions {
+    text-align: center;
+}
+
+.status-active {
+    color: #16A34A;
+    font-weight: 600;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.status-inactive {
+    color: #94A3B8;
+    font-weight: 500;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+/* ---------- Botones de acción de cada fila ---------- */
+.btn-action {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    color: #94A3B8;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+
+.btn-action:hover {
+    color: #2563EB;
+    background-color: #F1F5F9;
+}
+
+.action-icon {
+    width: 16px;
+    height: 16px;
+}
+
+/* ---------- Pie de tabla y paginación ---------- */
+.table-footer {
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    color: #64748B;
+    border-top: 1px solid #F1F5F9;
+}
+
+.pagination {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.page-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 6px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background-color: transparent;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.page-btn:hover:not(:disabled) {
+    background-color: #F1F5F9;
+}
+
+.page-btn.active {
+    background-color: #2563EB;
+    color: #FFFFFF;
+}
+
+.page-btn:disabled {
+    color: #CBD5E1;
+    cursor: not-allowed;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 48px !important;
+    color: #94A3B8;
+}
+
+/* ---------- Modales (fondo oscuro + tarjeta centrada) ---------- */
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(15, 23, 42, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 1000;
+}
+
+.modal-card {
+    background: #FFFFFF;
+    border-radius: 14px;
+    width: 100%;
+    max-width: 480px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+    padding: 18px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid #F1F5F9;
+    position: sticky;
+    top: 0;
+    background: #FFFFFF;
+    z-index: 1;
+}
+
+.modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1E293B;
+    margin: 0;
+}
+
+.modal-close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #94A3B8;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.modal-close-btn:hover {
+    color: #475569;
+}
+
+.modal-alert {
+    margin: 12px 24px 0 24px;
+}
+
+/* ---------- Formularios dentro de los modales ---------- */
+.modal-body {
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.form-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+}
+
+.form-control {
+    width: 100%;
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 14px;
+    color: #1E293B;
+    outline: none;
+    background-color: #FFFFFF;
+}
+
+.form-control:focus {
+    border-color: #2563EB;
+}
+
+.resize-none {
+    resize: none;
+}
+
+.field-error {
+    color: #B91C1C;
+    font-size: 12px;
+}
+
+/* ---------- Footer del modal: Cancelar / Guardar ---------- */
+.modal-footer {
+    padding: 16px 24px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    border-top: 1px solid #F1F5F9;
+    background-color: #F8FAFC;
+    position: sticky;
+    bottom: 0;
+}
+
+.btn-cancel {
+    background: #FFFFFF;
+    border: 1px solid #CBD5E1;
+    color: #475569;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.btn-cancel:hover:not(:disabled) {
+    background-color: #F8FAFC;
+}
+
+.btn-cancel:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+/* ---------- Responsive: pantallas pequeñas ---------- */
+@media (max-width: 768px) {
+    .tratamientos-page {
+        padding: 16px;
+    }
+
+    .filter-card {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .search-box {
+        max-width: none;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .custom-table {
+        min-width: 720px;
+    }
+
+    .table-footer {
+        flex-wrap: wrap;
+    }
+}
