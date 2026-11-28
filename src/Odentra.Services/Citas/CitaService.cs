@@ -49,20 +49,7 @@ public sealed class CitaService(
 
     public async Task<int> CreateAsync(CitaFormDto model, CancellationToken cancellationToken = default)
     {
-        if (model.PacienteId <= 0)
-            throw new InvalidOperationException("El ID del paciente no es válido.");
-
-        if (model.OdontologoId <= 0)
-            throw new InvalidOperationException("El ID del odontólogo no es válido.");
-
-        if (model.Fecha == default)
-            throw new InvalidOperationException("La fecha no es válida.");
-
-        if (model.HoraInicio == default || model.HoraFin == default)
-            throw new InvalidOperationException("Las horas no son válidas.");
-
-        if (model.HoraFin <= model.HoraInicio)
-            throw new InvalidOperationException("La hora de fin debe ser posterior a la hora de inicio.");
+        ValidarDatosDeCita(model);
 
         var paciente = await pacienteRepository.GetByIdAsync(model.PacienteId, cancellationToken);
         if (paciente is null)
@@ -77,6 +64,8 @@ public sealed class CitaService(
 
         if (odontologo.Estado != EstadoRegistro.Activo)
             throw new InvalidOperationException("El odontólogo debe estar activo para agendar citas.");
+
+        await ValidarDisponibilidadAsync(model, cancellationToken);
 
         var cita = new Cita
         {
@@ -108,20 +97,37 @@ public sealed class CitaService(
 
     public async Task UpdateAsync(CitaFormDto model, CancellationToken cancellationToken = default)
     {
+        ValidarDatosDeCita(model);
+
         var cita = await repository.GetByIdAsync(model.Id, cancellationToken);
         if (cita is null)
             throw new InvalidOperationException("La cita no existe.");
+
+        if (model.PacienteId != cita.PacienteId ||
+            model.Fecha != cita.Fecha ||
+            !string.Equals(model.Motivo, cita.Motivo, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "El paciente, la fecha y el motivo no pueden modificarse después de crear la cita.");
+        }
+
+        ValidarTransicionDeEstado(cita.Estado, model.Estado);
 
         var paciente = await pacienteRepository.GetByIdAsync(model.PacienteId, cancellationToken);
         if (paciente is null)
             throw new InvalidOperationException("El paciente no existe.");
 
+        if (paciente.Estado != EstadoRegistro.Activo)
+            throw new InvalidOperationException("El paciente debe estar activo para modificar citas.");
+
         var odontologo = await odontologoRepository.GetByIdAsync(model.OdontologoId, cancellationToken);
         if (odontologo is null)
             throw new InvalidOperationException("El odontólogo no existe.");
 
-        if (model.HoraFin <= model.HoraInicio)
-            throw new InvalidOperationException("La hora de fin debe ser posterior a la hora de inicio.");
+        if (odontologo.Estado != EstadoRegistro.Activo)
+            throw new InvalidOperationException("El odontólogo debe estar activo para modificar citas.");
+
+        await ValidarDisponibilidadAsync(model, cancellationToken);
 
         cita.PacienteId = model.PacienteId;
         cita.OdontologoId = model.OdontologoId;
@@ -143,12 +149,78 @@ public sealed class CitaService(
             cancellationToken);
     }
 
+    private async Task ValidarDisponibilidadAsync(
+        CitaFormDto model,
+        CancellationToken cancellationToken)
+    {
+        var existeSolapamiento = await repository.HasOverlappingAsync(
+            model.OdontologoId,
+            model.PacienteId,
+            model.Fecha,
+            model.HoraInicio,
+            model.HoraFin,
+            model.Id > 0 ? model.Id : null,
+            cancellationToken);
+
+        if (existeSolapamiento)
+        {
+            throw new InvalidOperationException(
+                "El paciente o el odontólogo ya tienen otra cita ocupando ese horario.");
+        }
+    }
+
+    private static void ValidarDatosDeCita(CitaFormDto model)
+    {
+        if (model.PacienteId <= 0)
+            throw new InvalidOperationException("El ID del paciente no es válido.");
+
+        if (model.OdontologoId <= 0)
+            throw new InvalidOperationException("El ID del odontólogo no es válido.");
+
+        if (model.Fecha == default)
+            throw new InvalidOperationException("La fecha no es válida.");
+
+        if (model.Fecha.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+            throw new InvalidOperationException("Las citas solo pueden programarse de lunes a viernes.");
+
+        if (model.HoraInicio == default || model.HoraFin == default)
+            throw new InvalidOperationException("Las horas no son válidas.");
+
+        if (model.HoraFin <= model.HoraInicio)
+            throw new InvalidOperationException("La hora de fin debe ser posterior a la hora de inicio.");
+    }
+
+    private static void ValidarTransicionDeEstado(
+        EstadoCita estadoActual,
+        EstadoCita nuevoEstado)
+    {
+        if (estadoActual == nuevoEstado)
+        {
+            return;
+        }
+
+        var permitida = estadoActual switch
+        {
+            EstadoCita.Programada =>
+                nuevoEstado is EstadoCita.Confirmada or EstadoCita.Cancelada or EstadoCita.NoAsistio,
+            EstadoCita.Confirmada => nuevoEstado == EstadoCita.Atendida,
+            _ => false
+        };
+
+        if (!permitida)
+        {
+            throw new InvalidOperationException(
+                $"No se puede cambiar una cita de '{NombreEstado(estadoActual)}' a '{NombreEstado(nuevoEstado)}'.");
+        }
+    }
+
     public async Task SetEstadoAsync(int id, EstadoCita estado, CancellationToken cancellationToken = default)
     {
         var cita = await repository.GetByIdAsync(id, cancellationToken);
         if (cita is null)
             throw new InvalidOperationException("La cita no existe.");
 
+        ValidarTransicionDeEstado(cita.Estado, estado);
         cita.Estado = estado;
 
         // Puente con Historia Clínica: si la cita queda Atendida, se registra su consulta clínica.

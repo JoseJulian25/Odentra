@@ -12,6 +12,14 @@ public interface ICitaRepository
         CancellationToken cancellationToken = default);
 
     Task<Cita?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<bool> HasOverlappingAsync(
+        int odontologoId,
+        int pacienteId,
+        DateOnly fecha,
+        TimeOnly horaInicio,
+        TimeOnly horaFin,
+        int? excludedId = null,
+        CancellationToken cancellationToken = default);
     Task<Cita> AddAsync(Cita cita, CancellationToken cancellationToken = default);
     Task<Cita> UpdateAsync(Cita cita, CancellationToken cancellationToken = default);
     Task SaveChangesAsync(CancellationToken cancellationToken = default);

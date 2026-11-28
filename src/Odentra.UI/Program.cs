@@ -7,6 +7,8 @@ using Odentra.Services;
 using Odentra.Services.Auditoria;
 using Odentra.Services.Autenticacion;
 using Odentra.Services.Odontograma;
+using Odentra.Services.Reportes;
+using Odentra.Services.Reportes.DTOs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -150,6 +152,38 @@ app.MapGet("/account/logout", async (
     await signInManager.SignOutAsync();
     return Results.Redirect("/login");
 });
+
+app.MapGet("/reportes/pdf", async (
+    string? tipo,
+    DateTime? desde,
+    DateTime? hasta,
+    int? odontologoId,
+    string? estado,
+    ClaimsPrincipal user,
+    IReportePdfService pdfService,
+    CancellationToken cancellationToken) =>
+{
+    if (!Enum.TryParse<ReporteTipo>(tipo, ignoreCase: true, out var reporteTipo))
+    {
+        return Results.BadRequest("El tipo de reporte no es válido.");
+    }
+
+    try
+    {
+        var filtro = new ReporteFiltroDto(desde, hasta, odontologoId, estado);
+        var archivo = await pdfService.GenerarAsync(
+            reporteTipo,
+            filtro,
+            user.Identity?.Name,
+            cancellationToken);
+
+        return Results.File(archivo.Contenido, "application/pdf", archivo.NombreArchivo);
+    }
+    catch (InvalidOperationException exception)
+    {
+        return Results.BadRequest(exception.Message);
+    }
+}).RequireAuthorization("Reportes.Ver");
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

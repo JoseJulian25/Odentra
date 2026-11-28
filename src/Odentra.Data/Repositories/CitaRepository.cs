@@ -46,6 +46,33 @@ public sealed class CitaRepository(ApplicationDbContext dbContext) : ICitaReposi
             .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
     }
 
+    public Task<bool> HasOverlappingAsync(
+        int odontologoId,
+        int pacienteId,
+        DateOnly fecha,
+        TimeOnly horaInicio,
+        TimeOnly horaFin,
+        int? excludedId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = dbContext.Citas
+            .AsNoTracking()
+            .Where(cita =>
+                cita.Fecha == fecha &&
+                (cita.OdontologoId == odontologoId || cita.PacienteId == pacienteId) &&
+                cita.Estado != EstadoCita.Cancelada &&
+                cita.Estado != EstadoCita.NoAsistio &&
+                cita.HoraInicio < horaFin &&
+                cita.HoraFin > horaInicio);
+
+        if (excludedId.HasValue)
+        {
+            query = query.Where(cita => cita.Id != excludedId.Value);
+        }
+
+        return query.AnyAsync(cancellationToken);
+    }
+
     public async Task<Cita> AddAsync(Cita cita, CancellationToken cancellationToken = default)
     {
         dbContext.Citas.Add(cita);
