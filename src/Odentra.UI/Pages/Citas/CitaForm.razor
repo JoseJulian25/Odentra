@@ -89,11 +89,11 @@
                 <div class="form-grid">
                     <div class="field">
                         <label for="date">Fecha</label>
-                        <InputDate id="date" @bind-Value="FechaSeleccionada" disabled="@(IsEditing ? "disabled" : null)" />
+                        <InputDate id="date" @bind-Value="FechaSeleccionada" min="@DateTime.Today.ToString("yyyy-MM-dd")" disabled="@(IsEditing ? "disabled" : null)" />
                         <ValidationMessage For="@(() => model.Fecha)" />
-                        @if (isWeekendError)
+                        @if (isPastError)
                         {
-                            <span style="color: #dc2626; font-size: 10px; margin-top: 2px;">Solo laboramos de lunes a viernes.</span>
+                            <span style="color: #dc2626; font-size: 10px; margin-top: 2px;">La cita no puede tener una fecha u hora pasada.</span>
                         }
                     </div>
 
@@ -225,7 +225,7 @@
     private bool saving;
     private bool notFound;
     private string? errorMessage;
-    private bool isWeekendError = false;
+    private bool isPastError = false;
 
     private bool IsEditing => Id.HasValue;
 
@@ -288,15 +288,27 @@
         _ => estado.ToString()
     };
 
-    // Propiedad para enlazar la Fecha y validar si es fin de semana en tiempo real
+    // Valida en tiempo real que la fecha y hora seleccionadas no sean pasadas
     private DateOnly FechaSeleccionada
     {
         get => model.Fecha;
         set
         {
             model.Fecha = value;
-            isWeekendError = value.DayOfWeek == DayOfWeek.Saturday || value.DayOfWeek == DayOfWeek.Sunday;
+            ActualizarValidacionFechaHora();
         }
+    }
+
+    private void ActualizarValidacionFechaHora()
+    {
+        if (model.Fecha == default)
+        {
+            isPastError = false;
+            return;
+        }
+
+        var fechaHoraCita = model.Fecha.ToDateTime(model.HoraInicio);
+        isPastError = fechaHoraCita < DateTime.Now;
     }
 
     // Propiedad para enlazar la hora de inicio con el menú desplegable
@@ -310,6 +322,7 @@
                 model.HoraInicio = time;
                 // Ajustar automáticamente la hora de fin a 30 mins después
                 model.HoraFin = time.AddMinutes(30);
+                ActualizarValidacionFechaHora();
                 UpdateEndTimes();
             }
         }
@@ -324,6 +337,7 @@
             if (TimeOnly.TryParse(value, out var time))
             {
                 model.HoraFin = time;
+                ActualizarValidacionFechaHora();
             }
         }
     }
@@ -381,16 +395,13 @@
 
                     model = loaded;
                     estadoOriginal = loaded.Estado; // Estado guardado: define las transiciones permitidas
-                    // Verificar si la fecha cargada es fin de semana
-                    isWeekendError = model.Fecha.DayOfWeek == DayOfWeek.Saturday || model.Fecha.DayOfWeek == DayOfWeek.Sunday;
+                    ActualizarValidacionFechaHora();
                 }
             }
             else
             {
-                // Para una nueva cita, empezamos buscando el próximo día laborable
+                // Una nueva cita puede agendarse cualquier día
                 var defaultDate = DateOnly.FromDateTime(DateTime.Now);
-                if (defaultDate.DayOfWeek == DayOfWeek.Saturday) defaultDate = defaultDate.AddDays(2);
-                else if (defaultDate.DayOfWeek == DayOfWeek.Sunday) defaultDate = defaultDate.AddDays(1);
 
                 model = new CitaFormDto
                 {
@@ -399,6 +410,8 @@
                     HoraFin = new TimeOnly(8, 30),
                     Estado = EstadoCita.Programada
                 };
+
+                ActualizarValidacionFechaHora();
             }
 
             // 2. Actualizar las horas de fin según la hora de inicio cargada
@@ -460,9 +473,16 @@
         try
         {
             // Validaciones base
-            if (model.Fecha.DayOfWeek == DayOfWeek.Saturday || model.Fecha.DayOfWeek == DayOfWeek.Sunday)
+            if (model.Fecha == default || model.HoraInicio == default || model.HoraFin == default)
             {
-                errorMessage = "Las citas solo pueden programarse en días laborables (lunes a viernes).";
+                errorMessage = "Debes especificar una fecha y horas válidas.";
+                saving = false;
+                return;
+            }
+
+            if (model.Fecha.ToDateTime(model.HoraInicio) < DateTime.Now)
+            {
+                errorMessage = "La cita no puede tener una fecha u hora pasada.";
                 saving = false;
                 return;
             }
@@ -477,13 +497,6 @@
             if (model.OdontologoId <= 0)
             {
                 errorMessage = "Debes seleccionar un odontólogo.";
-                saving = false;
-                return;
-            }
-
-            if (model.Fecha == default || model.HoraInicio == default || model.HoraFin == default)
-            {
-                errorMessage = "Debes especificar una fecha y horas válidas.";
                 saving = false;
                 return;
             }

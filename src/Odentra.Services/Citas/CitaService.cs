@@ -61,6 +61,9 @@ public sealed class CitaService(
         if (model.HoraInicio == default || model.HoraFin == default)
             throw new InvalidOperationException("Las horas no son válidas.");
 
+        if (model.Fecha.ToDateTime(model.HoraInicio) < DateTime.Now)
+            throw new InvalidOperationException("La cita no puede tener una fecha u hora pasada.");
+
         if (model.HoraFin <= model.HoraInicio)
             throw new InvalidOperationException("La hora de fin debe ser posterior a la hora de inicio.");
 
@@ -119,6 +122,9 @@ public sealed class CitaService(
         var odontologo = await odontologoRepository.GetByIdAsync(model.OdontologoId, cancellationToken);
         if (odontologo is null)
             throw new InvalidOperationException("El odontólogo no existe.");
+
+        if (model.Fecha.ToDateTime(model.HoraInicio) < DateTime.Now)
+            throw new InvalidOperationException("La cita no puede tener una fecha u hora pasada.");
 
         if (model.HoraFin <= model.HoraInicio)
             throw new InvalidOperationException("La hora de fin debe ser posterior a la hora de inicio.");

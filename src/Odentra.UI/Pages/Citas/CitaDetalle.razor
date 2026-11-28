@@ -32,7 +32,7 @@
                         @NombreEstado(cita.Estado)
                     </span>
                 </div>
-                <p>Programada para @cita.Fecha.ToString("dddd, d 'de' MMMM 'de' yyyy", new System.Globalization.CultureInfo("es-DO")) a las @cita.HoraInicio.ToString("HH:mm")</p>
+                <p>Programada para @cita.Fecha.ToString("dddd, d 'de' MMMM 'de' yyyy", new System.Globalization.CultureInfo("es-DO")) a las @cita.HoraInicio.ToString("hh:mm tt", System.Globalization.CultureInfo.InvariantCulture)</p>
             </div>
             <div class="header-actions">
                 @if (!EsEstadoFinal(cita.Estado))
@@ -118,7 +118,7 @@
                 </div>
                 <div>
                     <dt>Hora</dt>
-                    <dd>@cita.HoraInicio.ToString("HH:mm") - @cita.HoraFin.ToString("HH:mm")</dd>
+                    <dd>@cita.HoraInicio.ToString("hh:mm tt", System.Globalization.CultureInfo.InvariantCulture) - @cita.HoraFin.ToString("hh:mm tt", System.Globalization.CultureInfo.InvariantCulture)</dd>
                 </div>
                 <div>
                     <dt>Motivo</dt>

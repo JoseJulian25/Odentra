@@ -79,7 +79,7 @@
                         {
                             <tr>
                                 <td>@cita.Fecha.ToString("dd/MM/yyyy")</td>
-                                <td>@cita.HoraInicio.ToString("HH:mm") - @cita.HoraFin.ToString("HH:mm")</td>
+                                <td>@cita.HoraInicio.ToString("hh:mm tt", System.Globalization.CultureInfo.InvariantCulture) - @cita.HoraFin.ToString("hh:mm tt", System.Globalization.CultureInfo.InvariantCulture)</td>
                                 <td><a class="appointment-name" href="/cita/@cita.Id">@cita.PacienteNombre</a></td>
                                 <td>@cita.OdontologoNombre</td>
                                 <td>@(cita.Motivo ?? "-")</td>
