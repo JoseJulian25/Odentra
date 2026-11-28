@@ -90,7 +90,25 @@
                             <div class="field"><label for="dentist-first-name">Nombres</label><InputText id="dentist-first-name" @bind-Value="model.PerfilOdontologo!.Nombres" placeholder="Nombres profesionales" /></div>
                             <div class="field"><label for="dentist-last-name">Apellidos</label><InputText id="dentist-last-name" @bind-Value="model.PerfilOdontologo!.Apellidos" placeholder="Apellidos profesionales" /></div>
                             <div class="field"><label for="dentist-license">Número de licencia</label><InputText id="dentist-license" @bind-Value="model.PerfilOdontologo!.NumeroLicencia" placeholder="Licencia o colegiatura" /></div>
-                            <div class="field"><label for="dentist-specialty">Especialidad</label><InputText id="dentist-specialty" @bind-Value="model.PerfilOdontologo!.Especialidad" placeholder="Ej. Odontología general" /></div>
+                            <div class="field">
+                                <label for="dentist-specialty">Especialidad</label>
+                                <InputSelect id="dentist-specialty" @bind-Value="model.PerfilOdontologo!.Especialidad">
+                                    <option value="" disabled selected hidden> Seleccione una especialidad </option>
+                                    <option value="Anestesiología Dental">Anestesiología Dental</option>
+                                    <option value="Cirugía Oral y Maxilofacial">Cirugía Oral y Maxilofacial</option>
+                                    <option value="Endodoncia">Endodoncia</option>
+                                    <option value="Estetica Dental">Estetica Dental</option>
+                                    <option value="Implantología">Implantología</option>
+                                    <option value="Odontología General">Odontología General</option>
+                                    <option value="Odontología Forense">Odontología Forense</option>
+                                    <option value="Ortodoncia">Ortodoncia</option>
+                                    <option value="Odontopediatría">Odontopediatría</option>
+                                    <option value="Patología y Medicina Oral">Patología y Medicina Oral</option>
+                                    <option value="Radiología Oral y Maxilofacial">Radiología Oral y Maxilofacial</option>
+                                    <option value="Periodoncia">Periodoncia</option>
+                                    <option value="Prostodoncia">Prostodoncia</option>
+                                </InputSelect>
+                            </div>
                             <div class="field"><label for="dentist-phone">Teléfono</label><InputText id="dentist-phone" @bind-Value="model.PerfilOdontologo!.Telefono" /></div>
                             <div class="field"><label for="dentist-email">Correo profesional</label><InputText id="dentist-email" type="email" @bind-Value="model.PerfilOdontologo!.Correo" /></div>
                         </div>
