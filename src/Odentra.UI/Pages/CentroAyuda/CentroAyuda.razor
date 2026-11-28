@@ -1,117 +1,392 @@
 ﻿@page "/centro-ayuda"
+@rendermode InteractiveServer
 
-<PageTitle>Centro de Ayuda</PageTitle>
+<PageTitle>Centro de Ayuda · Odentra</PageTitle>
 
 <div class="help-page">
 
-    <!-- Encabezado -->
-    <div class="page-header">
-        <div>
-            <h1>Centro de Ayuda</h1>
+    @* ================= HERO =================
+       Encabezado principal con buscador interactivo que filtra los temas de ayuda. *@
+    <section class="help-hero">
+        <div class="hero-content">
+            <span class="hero-eyebrow">
+                <span class="hero-dot"></span>
+                Centro de soporte Odentra
+            </span>
+            <h1>¿En qué podemos ayudarte?</h1>
             <p>
-                Encuentra información, guías y soluciones para utilizar
-                correctamente el sistema Odentra.
+                Encuentra respuestas, guías paso a paso y soluciones a los problemas
+                más comunes del sistema. Todo en un mismo lugar.
             </p>
+
+            <div class="hero-search">
+                <svg class="hero-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input type="text"
+                       value="@busqueda"
+                       @oninput="OnBuscar"
+                       placeholder="Busca una guía, una pregunta o un problema..."
+                       aria-label="Buscar en el centro de ayuda" />
+                @if (!string.IsNullOrWhiteSpace(busqueda))
+                {
+                    <button type="button" class="hero-search-clear" @onclick="LimpiarBusqueda" aria-label="Limpiar búsqueda">
+                        &times;
+                    </button>
+                }
+            </div>
+
+            <div class="hero-stats">
+                <div class="hero-stat">
+                    <strong>Guías paso a paso</strong>
+                    <span>Aprende cada módulo</span>
+                </div>
+                <div class="hero-stat">
+                    <strong>Respuestas rápidas</strong>
+                    <span>Preguntas frecuentes</span>
+                </div>
+                <div class="hero-stat">
+                    <strong>Soporte dedicado</strong>
+                    <span>Estamos para ayudarte</span>
+                </div>
+            </div>
         </div>
+
+        <div class="hero-art" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <path d="M9.5 10.5c0-.8.7-1.5 1.5-1.5h2c.8 0 1.5.7 1.5 1.5v1.5c0 .8-.7 1.5-1.5 1.5h-2c-.8 0-1.5-.7-1.5-1.5v-1.5z" />
+            </svg>
+        </div>
+    </section>
+
+    @* ================= TARJETAS DE AYUDA ================= *@
+    <div class="section-heading">
+        <div>
+            <h2>Explora el centro de ayuda</h2>
+            <p>Selecciona una categoría para comenzar.</p>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(busqueda))
+        {
+            <span class="results-count">
+                @TemasFiltrados.Count @(TemasFiltrados.Count == 1 ? "resultado" : "resultados")
+            </span>
+        }
     </div>
 
-
-    <!-- Tarjetas de ayuda -->
-    <div class="help-grid">
-
-        <!-- Preguntas frecuentes -->
-        <div class="help-card">
-            <div class="help-card-content">
-                <h2>Preguntas frecuentes❓</h2>
-
-                <p>
-                    Consulta las preguntas más comunes sobre pacientes,
-                    odontólogos, citas, tratamientos, pagos y otros
-                    módulos de Odentra.
-                </p>
-
-                <a href="/centro-ayuda/preguntas-frecuentes"
-                   class="help-card-link">
-                    Ver preguntas
-                    <span>→</span>
-                </a>
+    @if (TemasFiltrados.Count == 0)
+    {
+        <div class="empty-state">
+            <div class="empty-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
             </div>
+            <strong>No encontramos resultados para "@busqueda"</strong>
+            <span>Prueba con otra palabra o explora todas las categorías.</span>
+            <button type="button" class="btn-secondary" @onclick="LimpiarBusqueda">Ver todo el contenido</button>
+        </div>
+    }
+    else
+    {
+        <div class="help-grid">
+            @foreach (var tema in TemasFiltrados)
+            {
+                <a href="@tema.Href" class="help-card @tema.Accent">
+                    <div class="help-card-top">
+                        <div class="help-card-icon">
+                            @if (tema.Icon == "faq")
+                            {
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="9" />
+                                    <path d="M9.2 9a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.2-2.8 4" />
+                                    <line x1="12" y1="17" x2="12" y2="17.01" />
+                                </svg>
+                            }
+                            else if (tema.Icon == "guia")
+                            {
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                                </svg>
+                            }
+                            else if (tema.Icon == "problema")
+                            {
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                                    <line x1="12" y1="9" x2="12" y2="13" />
+                                    <line x1="12" y1="17" x2="12" y2="17.01" />
+                                </svg>
+                            }
+                            else
+                            {
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+                                    <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z" />
+                                    <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+                                </svg>
+                            }
+                        </div>
+                        <span class="help-card-tag">@tema.Category</span>
+                    </div>
 
+                    <h3>@tema.Title</h3>
+                    <p>@tema.Description</p>
+
+                    <span class="help-card-link">
+                        @tema.Action
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                            <polyline points="12 5 19 12 12 19" />
+                        </svg>
+                    </span>
+                </a>
+            }
+        </div>
+    }
+
+    @* ================= ACCESOS RÁPIDOS =================
+       Atajos a los módulos más utilizados del sistema. *@
+    <section class="info-panel">
+        <div class="panel-heading">
+            <div>
+                <h2>Accesos rápidos a módulos</h2>
+                <p>Ve directamente a la sección que necesitas.</p>
+            </div>
         </div>
 
-
-        <!-- Guías rápidas -->
-        <div class="help-card">
-
-            <div class="help-card-content">
-
-                <h2>Guías rápidas📖</h2>
-
-                <p>
-                    Aprende paso a paso cómo realizar las principales
-                    operaciones dentro del sistema.
-                </p>
-
-                <a href="/centro-ayuda/guias"
-                   class="help-card-link">
-                    Ver guías
-                    <span>→</span>
+        <div class="quick-grid">
+            @foreach (var acceso in AccesosRapidos)
+            {
+                <a href="@acceso.Href" class="quick-link">
+                    <span class="quick-icon">
+                        @if (acceso.Icon == "paciente")
+                        {
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                <circle cx="12" cy="7" r="4" />
+                            </svg>
+                        }
+                        else if (acceso.Icon == "cita")
+                        {
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="4" width="18" height="18" rx="2" />
+                                <line x1="16" y1="2" x2="16" y2="6" />
+                                <line x1="8" y1="2" x2="8" y2="6" />
+                                <line x1="3" y1="10" x2="21" y2="10" />
+                            </svg>
+                        }
+                        else if (acceso.Icon == "tratamiento")
+                        {
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 5v14" />
+                                <path d="M5 12h14" />
+                            </svg>
+                        }
+                        else if (acceso.Icon == "pago")
+                        {
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="2" y="5" width="20" height="14" rx="2" />
+                                <line x1="2" y1="10" x2="22" y2="10" />
+                            </svg>
+                        }
+                        else if (acceso.Icon == "historia")
+                        {
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                            </svg>
+                        }
+                        else
+                        {
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2" />
+                                <path d="M3 9h18" />
+                                <path d="M9 21V9" />
+                            </svg>
+                        }
+                    </span>
+                    <span class="quick-copy">
+                        <strong>@acceso.Label</strong>
+                        <small>@acceso.Hint</small>
+                    </span>
                 </a>
+            }
+        </div>
+    </section>
 
+    @* ================= CONTACTO Y CONSEJO ================= *@
+    <div class="support-layout">
+        <section class="info-panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>Contacto de soporte</h2>
+                    <p>Nuestro equipo puede ayudarte con casos específicos.</p>
+                </div>
             </div>
 
-        </div>
+            <ul class="contact-list">
+                <li>
+                    <span class="contact-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="4" width="20" height="16" rx="2" />
+                            <path d="m22 7-10 6L2 7" />
+                        </svg>
+                    </span>
+                    <span class="contact-copy">
+                        <small>Correo electrónico</small>
+                        <a href="mailto:soporte@odentra.com">soporte@odentra.com</a>
+                    </span>
+                </li>
+                <li>
+                    <span class="contact-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
+                        </svg>
+                    </span>
+                    <span class="contact-copy">
+                        <small>Teléfono</small>
+                        <a href="tel:+18090000000">(809) 000-0000</a>
+                    </span>
+                </li>
+                <li>
+                    <span class="contact-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="9" />
+                            <polyline points="12 7 12 12 15 14" />
+                        </svg>
+                    </span>
+                    <span class="contact-copy">
+                        <small>Horario de atención</small>
+                        <span>Lunes a viernes, 8:00 AM – 5:00 PM</span>
+                    </span>
+                </li>
+            </ul>
 
-
-        <!-- Solución de problemas -->
-        <div class="help-card">
-            <div class="help-card-content">
-
-                <h2>Solución de problemas🔧</h2>
-
-                <p>
-                    Encuentra soluciones para los problemas más comunes
-                    que pueden presentarse durante el uso de Odentra.
-                </p>
-
-                <a href="/centro-ayuda/problemas"
-                   class="help-card-link">
-                    Ver soluciones
-                    <span>→</span>
-                </a>
-
-            </div>
-
-        </div>
-
-
-        <!-- Contactar soporte -->
-        <div class="help-card">
-
-            <div class="help-card-content">
-
-                <h2>Contactar soporte📞</h2>
-
-                <p>
-                    Si no encuentras la solución que necesitas,
-                    comunícate con el administrador del sistema.
-                </p>
-
-                <a href="/centro-ayuda/soporte"
-                   class="help-card-link">
+            <div class="panel-footer">
+                <a href="/centro-ayuda/soporte" class="btn-primary">
                     Contactar soporte
-                    <span>→</span>
                 </a>
-
             </div>
+        </section>
 
-        </div>
-
+        <aside class="tip-card">
+            <span class="tip-badge">Consejo</span>
+            <h3>Antes de reportar un problema</h3>
+            <p>
+                Ten a mano tu nombre de usuario, el módulo donde ocurrió el inconveniente
+                y el mensaje de error. Esto nos permite darte una solución más rápida.
+            </p>
+            <a href="/centro-ayuda/problemas" class="tip-link">
+                Ver soluciones frecuentes
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                </svg>
+            </a>
+        </aside>
     </div>
 
+    <p class="help-footer">Odentra · Sistema de gestión odontológica</p>
 </div>
 
-
 @code {
+    private string busqueda = string.Empty;
 
+    private void OnBuscar(ChangeEventArgs args)
+    {
+        busqueda = args.Value?.ToString() ?? string.Empty;
+    }
+
+    private void LimpiarBusqueda()
+    {
+        busqueda = string.Empty;
+    }
+
+    private List<HelpTopic> TemasFiltrados
+    {
+        get
+        {
+            var term = busqueda.Trim();
+            if (term.Length == 0)
+            {
+                return Temas;
+            }
+
+            return Temas.Where(tema =>
+                tema.Title.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                tema.Description.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                tema.Category.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                tema.Keywords.Any(palabra => palabra.Contains(term, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+        }
+    }
+
+    private static readonly List<HelpTopic> Temas =
+    [
+        new(
+            Title: "Preguntas frecuentes",
+            Description: "Consulta las respuestas a las dudas más comunes sobre pacientes, odontólogos, citas, tratamientos y pagos.",
+            Href: "/centro-ayuda/preguntas-frecuentes",
+            Category: "Consulta",
+            Icon: "faq",
+            Accent: "accent-blue",
+            Action: "Ver preguntas",
+            Keywords: ["paciente", "odontologo", "cita", "tratamiento", "pago", "editar", "desactivar", "registrar"]),
+        new(
+            Title: "Guías rápidas",
+            Description: "Aprende paso a paso cómo registrar pacientes, crear citas, gestionar tratamientos y registrar pagos.",
+            Href: "/centro-ayuda/guias",
+            Category: "Aprendizaje",
+            Icon: "guia",
+            Accent: "accent-emerald",
+            Action: "Ver guías",
+            Keywords: ["guia", "paso a paso", "tutorial", "registrar", "crear", "paciente", "cita", "tratamiento", "pago"]),
+        new(
+            Title: "Solución de problemas",
+            Description: "Encuentra soluciones a los inconvenientes más frecuentes: errores al guardar, permisos, citas y acceso.",
+            Href: "/centro-ayuda/problemas",
+            Category: "Diagnóstico",
+            Icon: "problema",
+            Accent: "accent-amber",
+            Action: "Ver soluciones",
+            Keywords: ["error", "problema", "no puedo", "guardar", "permiso", "acceso", "sesion", "login", "cita", "disponible"]),
+        new(
+            Title: "Contactar soporte",
+            Description: "Si no encuentras la solución que necesitas, comunícate con el equipo de soporte del sistema.",
+            Href: "/centro-ayuda/soporte",
+            Category: "Asistencia",
+            Icon: "soporte",
+            Accent: "accent-violet",
+            Action: "Contactar soporte",
+            Keywords: ["soporte", "contacto", "correo", "telefono", "horario", "ayuda", "administrador"])
+    ];
+
+    private static readonly List<QuickLink> AccesosRapidos =
+    [
+        new(Label: "Pacientes", Hint: "Registro y gestión", Href: "/pacientes", Icon: "paciente"),
+        new(Label: "Citas", Hint: "Agenda de consultas", Href: "/cita", Icon: "cita"),
+        new(Label: "Tratamientos", Hint: "Catálogo y realizados", Href: "/tratamientos", Icon: "tratamiento"),
+        new(Label: "Pagos", Hint: "Cobros y facturación", Href: "/pagos", Icon: "pago"),
+        new(Label: "Historia clínica", Hint: "Expedientes", Href: "/historia-clinica", Icon: "historia"),
+        new(Label: "Odontograma", Hint: "Mapa dental", Href: "/odontograma", Icon: "odontograma")
+    ];
+
+    private sealed record HelpTopic(
+        string Title,
+        string Description,
+        string Href,
+        string Category,
+        string Icon,
+        string Accent,
+        string Action,
+        string[] Keywords);
+
+    private sealed record QuickLink(
+        string Label,
+        string Hint,
+        string Href,
+        string Icon);
 }
