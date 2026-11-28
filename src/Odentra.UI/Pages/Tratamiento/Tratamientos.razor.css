@@ -509,6 +509,153 @@
     cursor: not-allowed;
 }
 
+/* ---------- Modal ancho (detalle y formulario de realizados) ---------- */
+.modal-lg {
+    max-width: 760px;
+}
+
+.form-hint {
+    margin: 0;
+    font-size: 12px;
+    color: #64748B;
+}
+
+.modal-footer {
+    flex-wrap: wrap;
+}
+
+.btn-danger {
+    background-color: #DC2626;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-danger:hover:not(:disabled) {
+    background-color: #B91C1C;
+}
+
+.btn-danger:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.cancel-note {
+    font-size: 12px;
+    color: #64748B;
+    align-self: center;
+}
+
+/* ---------- Tabla de realizados ---------- */
+.realized-table .col-actions {
+    text-align: center;
+}
+
+.action-group {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.estado-pagado {
+    background-color: #DCFCE7;
+    color: #15803D;
+}
+
+.estado-parcial {
+    background-color: #FEF3C7;
+    color: #B45309;
+}
+
+.estado-pendiente {
+    background-color: #F1F5F9;
+    color: #475569;
+}
+
+/* ---------- Detalle del tratamiento (modal) ---------- */
+.detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 20px;
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.detail-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #94A3B8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.detail-value {
+    font-size: 14px;
+    color: #1E293B;
+    overflow-wrap: anywhere;
+}
+
+.detail-money {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    padding: 14px 16px;
+    background-color: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+}
+
+.detail-money > div {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.detail-money strong {
+    font-size: 16px;
+    color: #1E293B;
+}
+
+.money-paid {
+    color: #15803D !important;
+}
+
+.money-pending {
+    color: #B45309 !important;
+}
+
+.detail-notes {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.detail-notes p {
+    margin: 0;
+    font-size: 14px;
+    color: #334155;
+    white-space: pre-wrap;
+}
+
 /* ---------- Responsive: pantallas pequeñas ---------- */
 @media (max-width: 768px) {
     .tratamientos-page {

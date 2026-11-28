@@ -244,6 +244,13 @@ public sealed class PagoService(
         var tratamiento = await repository.GetTratamientoAsync(model.TratamientoRealizadoId, cancellationToken)
             ?? throw new InvalidOperationException("El tratamiento seleccionado no existe.");
 
+        // Un tratamiento cancelado no admite cobros.
+        if (tratamiento.Estado == EstadoTratamiento.Cancelado)
+        {
+            throw new InvalidOperationException(
+                "Este tratamiento está cancelado; no se pueden registrar pagos.");
+        }
+
         // Paso 3: calcular cuánto falta por pagar de ese tratamiento.
         var saldoPendiente = tratamiento.Precio - TotalPagado(tratamiento);
 
@@ -283,6 +290,14 @@ public sealed class PagoService(
 
         // Paso 5: guardar el pago en la base de datos.
         await repository.AddAsync(pago, cancellationToken);
+
+        // Si este pago salda el tratamiento en proceso, pasa a completado en la misma operación.
+        var completado = tratamiento.Estado == EstadoTratamiento.EnProceso && saldoPendiente - monto <= 0;
+        if (completado)
+        {
+            tratamiento.Estado = EstadoTratamiento.Completado;
+        }
+
         await repository.SaveChangesAsync(cancellationToken);
 
         // Paso 6: anotar el movimiento en la auditoría (queda el rastro de quién cobró y cuánto).
@@ -292,6 +307,15 @@ public sealed class PagoService(
             $"Registró un pago de RD$ {pago.Monto.ToString("N2", Cultura)} para " +
             $"{tratamiento.Paciente.Nombres} {tratamiento.Paciente.Apellidos} ({tratamiento.Tratamiento.Nombre})",
             cancellationToken);
+
+        if (completado)
+        {
+            await auditoriaService.RegistrarAsync(
+                "Completó", "Tratamientos", nameof(TratamientoRealizado), tratamiento.Id,
+                $"Completó el tratamiento '{tratamiento.Tratamiento.Nombre}' de " +
+                $"{tratamiento.Paciente.Nombres} {tratamiento.Paciente.Apellidos} al saldarse el pago.",
+                cancellationToken);
+        }
 
         // Paso 7: devolver el id del pago creado (la pantalla lo usa para refrescar).
         return pago.Id;

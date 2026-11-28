@@ -729,14 +729,14 @@
     }
 
     /// <summary>
-    /// Texto visible del estado de un tratamiento: Pendiente, En proceso, Completado o Cancelado.
+    /// Texto visible del estado de un tratamiento: En proceso, Completado o Cancelado.
     /// </summary>
     private static string EstadoTratamientoLabel(EstadoTratamiento estado) => estado switch
     {
         EstadoTratamiento.EnProceso => "En proceso",
         EstadoTratamiento.Completado => "Completado",
         EstadoTratamiento.Cancelado => "Cancelado",
-        _ => "Pendiente"
+        _ => "En proceso"
     };
 
     /// <summary>

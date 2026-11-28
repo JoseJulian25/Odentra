@@ -230,7 +230,7 @@ public sealed class ReporteService(IReporteRepository repository) : IReporteServ
         {
             new("Total tratamientos", tratamientos.Count.ToString(Cultura), "blue", "activity"),
             new("Completados", tratamientos.Count(tratamiento => tratamiento.Estado == EstadoTratamiento.Completado).ToString(Cultura), "green", "check"),
-            new("Pendientes", tratamientos.Count(tratamiento => tratamiento.Estado is EstadoTratamiento.Pendiente or EstadoTratamiento.EnProceso).ToString(Cultura), "amber", "clock"),
+            new("En proceso", tratamientos.Count(tratamiento => tratamiento.Estado == EstadoTratamiento.EnProceso).ToString(Cultura), "amber", "clock"),
             new("Total facturado", Money(tratamientos.Sum(tratamiento => tratamiento.Precio)), "violet", "money")
         };
 
@@ -468,7 +468,6 @@ public sealed class ReporteService(IReporteRepository repository) : IReporteServ
 
     private static string TextoTratamiento(EstadoTratamiento estado) => estado switch
     {
-        EstadoTratamiento.Pendiente => "Pendiente",
         EstadoTratamiento.EnProceso => "En proceso",
         EstadoTratamiento.Completado => "Completado",
         EstadoTratamiento.Cancelado => "Cancelado",
@@ -500,7 +499,6 @@ public sealed class ReporteService(IReporteRepository repository) : IReporteServ
     {
         EstadoTratamiento.Completado => "green",
         EstadoTratamiento.EnProceso => "blue",
-        EstadoTratamiento.Pendiente => "amber",
         EstadoTratamiento.Cancelado => "red",
         _ => "slate"
     };

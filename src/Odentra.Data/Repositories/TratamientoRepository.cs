@@ -131,7 +131,8 @@ public sealed class TratamientoRepository(ApplicationDbContext dbContext) : ITra
             .Include(realizado => realizado.Paciente)
             .Include(realizado => realizado.Tratamiento)
             .Include(realizado => realizado.Odontologo)
-            .Include(realizado => realizado.PiezaDental);
+            .Include(realizado => realizado.PiezaDental)
+            .Include(realizado => realizado.Pagos);
 
         // Filtro por estado clínico (Pendiente, En proceso, Completado, Cancelado).
         if (estado.HasValue)
@@ -177,6 +178,21 @@ public sealed class TratamientoRepository(ApplicationDbContext dbContext) : ITra
             .Include(realizado => realizado.Pagos)
             .FirstOrDefaultAsync(realizado => realizado.Id == id, cancellationToken);
 
+    /// <summary>
+    /// Trae un tratamiento realizado con seguimiento de EF para poder modificarlo.
+    /// Incluye las relaciones que se muestran y los pagos para validar el precio.
+    /// </summary>
+    public Task<TratamientoRealizado?> GetRealizadoForUpdateAsync(
+        int id,
+        CancellationToken cancellationToken = default) =>
+        dbContext.TratamientosRealizados
+            .Include(realizado => realizado.Paciente)
+            .Include(realizado => realizado.Tratamiento)
+            .Include(realizado => realizado.Odontologo)
+            .Include(realizado => realizado.PiezaDental)
+            .Include(realizado => realizado.Pagos)
+            .FirstOrDefaultAsync(realizado => realizado.Id == id, cancellationToken);
+
     /// <summary>Agrega el tratamiento realizado al contexto para insertarlo al guardar.</summary>
     public async Task AddRealizadoAsync(TratamientoRealizado realizado, CancellationToken cancellationToken = default)
     {
@@ -205,20 +221,30 @@ public sealed class TratamientoRepository(ApplicationDbContext dbContext) : ITra
         return true;
     }
 
-    /// <summary>Pacientes activos ordenados por apellido para el selector del formulario.</summary>
-    public async Task<IReadOnlyList<Paciente>> GetPacientesActivosAsync(CancellationToken cancellationToken = default) =>
+    /// <summary>Obtiene un paciente por Id, sin seguimiento de cambios.</summary>
+    public Task<Paciente?> GetPacienteAsync(int id, CancellationToken cancellationToken = default) =>
+        dbContext.Pacientes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(paciente => paciente.Id == id, cancellationToken);
+
+    /// <summary>Obtiene un odontólogo por Id, sin seguimiento de cambios.</summary>
+    public Task<Odontologo?> GetOdontologoAsync(int id, CancellationToken cancellationToken = default) =>
+        dbContext.Odontologos
+            .AsNoTracking()
+            .FirstOrDefaultAsync(odontologo => odontologo.Id == id, cancellationToken);
+
+    /// <summary>Todos los pacientes, activos e inactivos, ordenados por apellido.</summary>
+    public async Task<IReadOnlyList<Paciente>> GetPacientesAsync(CancellationToken cancellationToken = default) =>
         await dbContext.Pacientes
             .AsNoTracking()
-            .Where(paciente => paciente.Estado == EstadoRegistro.Activo)
             .OrderBy(paciente => paciente.Apellidos)
             .ThenBy(paciente => paciente.Nombres)
             .ToListAsync(cancellationToken);
 
-    /// <summary>Odontólogos activos ordenados por apellido para el selector del formulario.</summary>
-    public async Task<IReadOnlyList<Odontologo>> GetOdontologosActivosAsync(CancellationToken cancellationToken = default) =>
+    /// <summary>Todos los odontólogos, activos e inactivos, ordenados por apellido.</summary>
+    public async Task<IReadOnlyList<Odontologo>> GetOdontologosAsync(CancellationToken cancellationToken = default) =>
         await dbContext.Odontologos
             .AsNoTracking()
-            .Where(odontologo => odontologo.Estado == EstadoRegistro.Activo)
             .OrderBy(odontologo => odontologo.Apellidos)
             .ThenBy(odontologo => odontologo.Nombres)
             .ToListAsync(cancellationToken);
@@ -231,14 +257,34 @@ public sealed class TratamientoRepository(ApplicationDbContext dbContext) : ITra
             .ToListAsync(cancellationToken);
 
     /// <summary>
-    /// Solo tratamientos activos: la regla del dominio impide usar uno inactivo
-    /// al registrar un tratamiento realizado.
+    /// Catálogo completo o solo los activos. Solo los activos se pueden usar en registros nuevos;
+    /// el formulario de edición necesita también los inactivos para no perder la selección original.
     /// </summary>
-    public async Task<IReadOnlyList<Tratamiento>> GetActivosAsync(CancellationToken cancellationToken = default) =>
-        await dbContext.Tratamientos
-            .AsNoTracking()
-            .Where(treatment => treatment.Estado == EstadoRegistro.Activo)
+    public async Task<IReadOnlyList<Tratamiento>> GetTratamientosAsync(
+        bool soloActivos,
+        CancellationToken cancellationToken = default)
+    {
+        IQueryable<Tratamiento> query = dbContext.Tratamientos.AsNoTracking();
+
+        if (soloActivos)
+        {
+            query = query.Where(treatment => treatment.Estado == EstadoRegistro.Activo);
+        }
+
+        return await query
             .OrderBy(treatment => treatment.Nombre)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>Consultas clínicas de un paciente, de la más reciente a la más antigua.</summary>
+    public async Task<IReadOnlyList<ConsultaClinica>> GetConsultasPacienteAsync(
+        int pacienteId,
+        CancellationToken cancellationToken = default) =>
+        await dbContext.ConsultasClinicas
+            .AsNoTracking()
+            .Where(consulta => consulta.PacienteId == pacienteId)
+            .OrderByDescending(consulta => consulta.Fecha)
+            .ThenByDescending(consulta => consulta.Id)
             .ToListAsync(cancellationToken);
 
     /// <summary>Verifica existencia + estado activo del paciente en una sola consulta.</summary>

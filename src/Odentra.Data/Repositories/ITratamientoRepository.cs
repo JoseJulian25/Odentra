@@ -45,6 +45,7 @@ public interface ITratamientoRepository
     /// <summary>
     /// Busca tratamientos realizados (aplicados a pacientes) con texto y estado,
     /// usando paginación. Devuelve la página y el total de coincidencias.
+    /// Incluye los pagos para calcular el estado financiero de cada fila.
     /// </summary>
     Task<(IReadOnlyList<TratamientoRealizado> Items, int Total)> SearchRealizadosAsync(
         string? searchTerm,
@@ -59,6 +60,12 @@ public interface ITratamientoRepository
     /// </summary>
     Task<TratamientoRealizado?> GetRealizadoAsync(int id, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Obtiene un tratamiento realizado rastreado por EF para modificarlo.
+    /// Incluye paciente, tratamiento, odontólogo y pagos.
+    /// </summary>
+    Task<TratamientoRealizado?> GetRealizadoForUpdateAsync(int id, CancellationToken cancellationToken = default);
+
     /// <summary>Marca un tratamiento realizado nuevo para insertarlo al guardar cambios.</summary>
     Task AddRealizadoAsync(TratamientoRealizado realizado, CancellationToken cancellationToken = default);
 
@@ -71,17 +78,26 @@ public interface ITratamientoRepository
         EstadoTratamiento estado,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Lista los pacientes activos para el selector del formulario de registro.</summary>
-    Task<IReadOnlyList<Paciente>> GetPacientesActivosAsync(CancellationToken cancellationToken = default);
+    /// <summary>Obtiene un paciente por Id, sin seguimiento de cambios.</summary>
+    Task<Paciente?> GetPacienteAsync(int id, CancellationToken cancellationToken = default);
 
-    /// <summary>Lista los odontólogos activos para el selector del formulario de registro.</summary>
-    Task<IReadOnlyList<Odontologo>> GetOdontologosActivosAsync(CancellationToken cancellationToken = default);
+    /// <summary>Obtiene un odontólogo por Id, sin seguimiento de cambios.</summary>
+    Task<Odontologo?> GetOdontologoAsync(int id, CancellationToken cancellationToken = default);
+
+    /// <summary>Lista todos los pacientes (activos e inactivos) para el formulario de edición.</summary>
+    Task<IReadOnlyList<Paciente>> GetPacientesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Lista todos los odontólogos (activos e inactivos) para el formulario de edición.</summary>
+    Task<IReadOnlyList<Odontologo>> GetOdontologosAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Lista el catálogo de piezas dentales (numeración FDI) para el selector.</summary>
     Task<IReadOnlyList<PiezaDental>> GetPiezasAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>Lista solo los tratamientos activos: los inactivos no se pueden usar en registros nuevos.</summary>
-    Task<IReadOnlyList<Tratamiento>> GetActivosAsync(CancellationToken cancellationToken = default);
+    /// <summary>Lista el catálogo completo o solo los activos, según el parámetro.</summary>
+    Task<IReadOnlyList<Tratamiento>> GetTratamientosAsync(bool soloActivos, CancellationToken cancellationToken = default);
+
+    /// <summary>Consultas clínicas de un paciente, de la más reciente a la más antigua.</summary>
+    Task<IReadOnlyList<ConsultaClinica>> GetConsultasPacienteAsync(int pacienteId, CancellationToken cancellationToken = default);
 
     /// <summary>Valida que el paciente exista y esté activo antes de registrar un tratamiento.</summary>
     Task<bool> PacienteActivoExisteAsync(int id, CancellationToken cancellationToken = default);

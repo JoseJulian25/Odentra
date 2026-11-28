@@ -10,7 +10,7 @@ public class TratamientoRealizado
     public int? ConsultaId { get; set; }
     public DateTime Fecha { get; set; } = DateTime.UtcNow;
     public decimal Precio { get; set; }
-    public EstadoTratamiento Estado { get; set; } = EstadoTratamiento.Pendiente;
+    public EstadoTratamiento Estado { get; set; } = EstadoTratamiento.EnProceso;
     public string? Observaciones { get; set; }
 
     public Paciente Paciente { get; set; } = null!;

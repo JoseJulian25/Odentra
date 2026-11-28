@@ -38,7 +38,6 @@ public static class Formato
     /// </summary>
     public static string Estado(EstadoTratamiento estado) => estado switch
     {
-        EstadoTratamiento.Pendiente => "Pendiente",
         EstadoTratamiento.EnProceso => "En proceso",
         EstadoTratamiento.Completado => "Completado",
         EstadoTratamiento.Cancelado => "Cancelado",
